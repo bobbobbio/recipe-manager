@@ -1,0 +1,22 @@
+diff --git a/tmp/a b/src/database/schema.rs
+index b5ddedf..c08507b 100644
+--- a/tmp/a
++++ b/src/database/schema.rs
+@@ -6,7 +6,7 @@ diesel::table! {
+         recipe_id -> Integer,
+         ingredient_id -> Integer,
+         quantity -> Float,
+-        quantity_units -> Nullable<Text>,
++        quantity_units -> Nullable<crate::database::models::IngredientMeasurementMapping>,
+     }
+ }
+ 
+@@ -29,7 +29,7 @@ diesel::table! {
+         id -> Integer,
+         name -> Text,
+         description -> Text,
+-        duration -> Text,
++        duration -> crate::database::models::RecipeDurationMapping,
+         category -> Integer,
+     }
+ }
