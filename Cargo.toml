@@ -1,5 +1,5 @@
 [package]
-name = "recipe_manager"
+name = "recipe-manager"
 version = "0.1.0"
 edition = "2021"
 
