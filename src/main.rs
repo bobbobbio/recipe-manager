@@ -26,9 +26,11 @@ enum Commands {
 
 /// This is where the database and other user-data lives on-disk. On Linux it should be like:
 /// `~/.local/share/recipe_manager/`
-fn data_path() -> PathBuf {
+fn data_path() -> Result<PathBuf> {
     let dirs = directories::BaseDirs::new().expect("failed to get user home directory");
-    dirs.data_dir().join("recipe_manager")
+    let path = dirs.data_dir().join("recipe_manager");
+    std::fs::create_dir_all(&path)?;
+    Ok(path)
 }
 
 fn run(conn: database::Connection) -> Result<()> {
@@ -50,7 +52,7 @@ fn run(conn: database::Connection) -> Result<()> {
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let conn = database::establish_connection(data_path().join("data.sqlite"))?;
+    let conn = database::establish_connection(data_path()?.join("data.sqlite"))?;
     match args.commands {
         Commands::ImportRecipes { path } => import::import_recipes(conn, path)?,
         Commands::ImportCalendar { path } => import::import_calendar(conn, path)?,
