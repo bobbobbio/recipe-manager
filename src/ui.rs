@@ -17,7 +17,7 @@ use crate::database::models::{
 };
 
 struct CategoryListWindow {
-    categories: HashMap<RecipeCategoryId, RecipeCategory>,
+    categories: HashMap<RecipeCategoryId, (RecipeCategory, bool)>,
     new_category_name: String,
 }
 
@@ -30,7 +30,7 @@ impl CategoryListWindow {
                 .load(conn)
                 .unwrap()
                 .into_iter()
-                .map(|cat| (cat.id, cat))
+                .map(|cat| (cat.id, (cat, false)))
                 .collect(),
             new_category_name: String::new(),
         }
@@ -48,12 +48,7 @@ impl CategoryListWindow {
         *self = Self::new(conn);
     }
 
-    fn update(
-        &mut self,
-        ctx: &egui::Context,
-        conn: &mut database::Connection,
-    ) -> Vec<RecipeCategory> {
-        let mut recipe_lists_to_show = vec![];
+    fn update(&mut self, ctx: &egui::Context, conn: &mut database::Connection) {
         egui::Window::new("Categories").show(ctx, |ui| {
             let scroll_height = ui.available_height() - 30.0;
 
@@ -61,12 +56,11 @@ impl CategoryListWindow {
                 .auto_shrink([false, false])
                 .max_height(scroll_height)
                 .show(ui, |ui| {
-                    let mut sorted_categories: Vec<_> = self.categories.values().collect();
-                    sorted_categories.sort_by_key(|c| &c.name);
-                    for cat in sorted_categories {
-                        if ui.button(cat.name.clone()).clicked() {
-                            recipe_lists_to_show.push(cat.clone());
-                        }
+                    let mut sorted_categories: Vec<_> = self.categories.values_mut().collect();
+                    sorted_categories.sort_by(|a, b| a.0.name.cmp(&b.0.name));
+
+                    for (cat, shown) in sorted_categories {
+                        ui.toggle_value(shown, cat.name.clone());
                     }
                 });
             ui.horizontal(|ui| {
@@ -79,7 +73,6 @@ impl CategoryListWindow {
                 }
             });
         });
-        recipe_lists_to_show
     }
 }
 
@@ -392,7 +385,7 @@ pub struct RecipeManager {
     category_list: CategoryListWindow,
     conn: database::Connection,
     import_window: Option<ImportWindow>,
-    recipe_lists: Vec<RecipeListWindow>,
+    recipe_lists: HashMap<RecipeCategoryId, RecipeListWindow>,
     recipes: Vec<RecipeWindow>,
     all_ingredients: BTreeMap<String, Ingredient>,
 }
@@ -418,14 +411,22 @@ impl RecipeManager {
         }
     }
 
-    fn show_recipe_list(&mut self, category: RecipeCategory) {
-        self.recipe_lists
-            .push(RecipeListWindow::new(&mut self.conn, category));
-    }
-
     fn update_category_list_window(&mut self, ctx: &egui::Context) {
-        for cat in self.category_list.update(ctx, &mut self.conn) {
-            self.show_recipe_list(cat);
+        self.category_list.update(ctx, &mut self.conn);
+        let categories: HashMap<_, _> = self
+            .category_list
+            .categories
+            .values()
+            .filter(|(_, shown)| *shown)
+            .map(|(cat, _)| (cat.id.clone(), cat.clone()))
+            .collect();
+        self.recipe_lists
+            .retain(|key, _| categories.contains_key(key));
+        for (_, cat) in categories {
+            if !self.recipe_lists.contains_key(&cat.id) {
+                self.recipe_lists
+                    .insert(cat.id, RecipeListWindow::new(&mut self.conn, cat));
+            }
         }
     }
 
@@ -435,13 +436,15 @@ impl RecipeManager {
     }
 
     fn update_recipe_list_windows(&mut self, ctx: &egui::Context) {
-        for list in mem::take(&mut self.recipe_lists) {
+        for (id, list) in mem::take(&mut self.recipe_lists) {
             let (closed, recipes_shown) = list.update(ctx);
             for recipe_id in recipes_shown {
                 self.show_recipe(recipe_id);
             }
             if !closed {
-                self.recipe_lists.push(list);
+                self.recipe_lists.insert(id, list);
+            } else {
+                self.category_list.categories.get_mut(&id).unwrap().1 = false;
             }
         }
     }
