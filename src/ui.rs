@@ -23,7 +23,7 @@ struct CategoryBeingEdited {
 }
 
 struct CategoryListWindow {
-    categories: BTreeMap<String, RecipeCategoryId>,
+    categories: HashMap<RecipeCategoryId, RecipeCategory>,
     new_category_name: String,
     edit_mode: bool,
     category_being_edited: Option<CategoryBeingEdited>,
@@ -38,7 +38,7 @@ impl CategoryListWindow {
                 .load(conn)
                 .unwrap()
                 .into_iter()
-                .map(|cat| (cat.name, cat.id))
+                .map(|cat| (cat.id, cat))
                 .collect(),
             new_category_name: String::new(),
             edit_mode: false,
@@ -107,7 +107,10 @@ impl CategoryListWindow {
                 .max_height(scroll_height)
                 .show(ui, |ui| {
                     egui::Grid::new("categories grid").show(ui, |ui| {
-                        for (name, cat_id) in &self.categories {
+                        let mut sorted_categories: Vec<_> = self.categories.values().collect();
+                        sorted_categories.sort_by_key(|cat| &cat.name);
+
+                        for RecipeCategory { name, id: cat_id } in sorted_categories {
                             if let Some(e) = &mut self.category_being_edited {
                                 if e.id == *cat_id {
                                     ui.add(egui::TextEdit::singleline(&mut e.name));
@@ -183,7 +186,7 @@ impl CategoryListWindow {
 
 struct RecipeListWindow {
     recipe_category: RecipeCategory,
-    recipes: BTreeMap<String, RecipeId>,
+    recipes: HashMap<RecipeId, RecipeHandle>,
     edit_mode: bool,
     new_recipe_name: String,
 }
@@ -198,7 +201,7 @@ impl RecipeListWindow {
                 .load(conn)
                 .unwrap()
                 .into_iter()
-                .map(|h| (h.name, h.id))
+                .map(|h| (h.id, h))
                 .collect(),
             recipe_category,
             edit_mode: false,
@@ -252,7 +255,10 @@ impl RecipeListWindow {
                     .max_height(scroll_height)
                     .show(ui, |ui| {
                         egui::Grid::new("recipe_listing").show(ui, |ui| {
-                            for (name, id) in &self.recipes {
+                            let mut sorted_recipes: Vec<_> = self.recipes.values().collect();
+                            sorted_recipes.sort_by_key(|r| &r.name);
+
+                            for RecipeHandle { name, id } in sorted_recipes {
                                 let mut shown = recipe_windows.contains_key(&id);
                                 ui.toggle_value(&mut shown, name.clone());
 
@@ -784,9 +790,9 @@ impl RecipeManager {
 
             if old_name != recipe.recipe.name {
                 if let Some(list) = self.recipe_lists.get_mut(&recipe.recipe.category) {
-                    list.recipes.remove(&old_name);
-                    list.recipes
-                        .insert(recipe.recipe.name.clone(), recipe.recipe.id);
+                    if let Some(r) = list.recipes.get_mut(&recipe.recipe.id) {
+                        r.name = recipe.recipe.name.clone();
+                    }
                 }
             }
 
