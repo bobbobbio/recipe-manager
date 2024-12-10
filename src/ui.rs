@@ -110,12 +110,12 @@ impl CategoryListWindow {
                 });
             ui.separator();
             ui.horizontal(|ui| {
+                ui.toggle_value(&mut self.edit_mode, "Edit");
                 ui.add(
                     egui::TextEdit::singleline(&mut self.new_category_name)
                         .desired_width(ui.available_width() - 100.0),
                 );
                 add_category = ui.button("Add").clicked();
-                ui.toggle_value(&mut self.edit_mode, "Edit");
             });
         });
 
@@ -138,15 +138,15 @@ impl CategoryListWindow {
 }
 
 struct RecipeListWindow {
-    name: String,
+    recipe_category: RecipeCategory,
     recipes: BTreeMap<String, RecipeId>,
+    edit_mode: bool,
 }
 
 impl RecipeListWindow {
     fn new(conn: &mut database::Connection, recipe_category: RecipeCategory) -> Self {
         use database::schema::recipes::dsl::*;
         Self {
-            name: recipe_category.name,
             recipes: recipes
                 .select(RecipeHandle::as_select())
                 .filter(category.eq(recipe_category.id))
@@ -155,31 +155,71 @@ impl RecipeListWindow {
                 .into_iter()
                 .map(|h| (h.name, h.id))
                 .collect(),
+            recipe_category,
+            edit_mode: false,
         }
     }
 
+    fn delete_recipe(conn: &mut database::Connection, id_to_delete: RecipeId) {
+        use database::schema::recipes::dsl::*;
+        use diesel::delete;
+
+        delete(recipes.filter(id.eq(id_to_delete)))
+            .execute(conn)
+            .unwrap();
+    }
+
     fn update(
-        &self,
+        &mut self,
         ctx: &egui::Context,
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
     ) -> bool {
+        let mut recipes_to_delete = vec![];
         let mut open = true;
-        egui::Window::new(self.name.clone())
+        egui::Window::new(&self.recipe_category.name)
             .open(&mut open)
             .show(ctx, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    for (name, id) in &self.recipes {
-                        let mut shown = recipe_windows.contains_key(&id);
-                        ui.toggle_value(&mut shown, name.clone());
-                        if shown && !recipe_windows.contains_key(&id) {
-                            recipe_windows.insert(*id, RecipeWindow::new(conn, *id));
-                        } else if !shown {
-                            recipe_windows.remove(id);
-                        }
-                    }
-                });
+                let scroll_height = ui.available_height() - 35.0;
+                egui::ScrollArea::vertical()
+                    .auto_shrink(false)
+                    .max_height(scroll_height)
+                    .show(ui, |ui| {
+                        egui::Grid::new("recipe_listing").show(ui, |ui| {
+                            for (name, id) in &self.recipes {
+                                let mut shown = recipe_windows.contains_key(&id);
+                                ui.toggle_value(&mut shown, name.clone());
+
+                                if self.edit_mode {
+                                    if ui.button("Delete").clicked() {
+                                        recipes_to_delete.push(*id);
+                                    }
+                                }
+                                ui.end_row();
+
+                                if shown && !recipe_windows.contains_key(&id) {
+                                    recipe_windows.insert(*id, RecipeWindow::new(conn, *id));
+                                } else if !shown {
+                                    recipe_windows.remove(id);
+                                }
+                            }
+                        });
+                    });
+                ui.separator();
+                ui.toggle_value(&mut self.edit_mode, "Edit");
             });
+
+        let mut refresh_self = false;
+        for recipe in recipes_to_delete {
+            Self::delete_recipe(conn, recipe);
+            refresh_self = true;
+            recipe_windows.remove(&recipe);
+        }
+
+        if refresh_self {
+            *self = Self::new(conn, self.recipe_category.clone());
+        }
+
         !open
     }
 }
@@ -625,7 +665,7 @@ impl RecipeManager {
     }
 
     fn update_recipe_list_windows(&mut self, ctx: &egui::Context) {
-        for (id, list) in mem::take(&mut self.recipe_lists) {
+        for (id, mut list) in mem::take(&mut self.recipe_lists) {
             let closed = list.update(ctx, &mut self.conn, &mut self.recipes);
 
             if !closed {
