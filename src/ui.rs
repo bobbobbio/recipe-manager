@@ -704,9 +704,9 @@ impl ImportWindow {
 }
 
 #[derive(Default)]
-struct IngredientWindow;
+struct IngredientListWindow;
 
-impl IngredientWindow {
+impl IngredientListWindow {
     fn update(
         &mut self,
         _conn: &mut database::Connection,
@@ -742,7 +742,7 @@ pub struct RecipeManager {
     recipe_lists: HashMap<RecipeCategoryId, RecipeListWindow>,
     recipes: HashMap<RecipeId, RecipeWindow>,
     all_ingredients: BTreeMap<String, Ingredient>,
-    ingredient_window: Option<IngredientWindow>,
+    ingredient_list_window: Option<IngredientListWindow>,
 }
 
 impl RecipeManager {
@@ -763,7 +763,7 @@ impl RecipeManager {
                 .into_iter()
                 .map(|i| (i.name.clone(), i))
                 .collect(),
-            ingredient_window: None,
+            ingredient_list_window: None,
         }
     }
 
@@ -808,8 +808,8 @@ impl RecipeManager {
                     if ui.button("Import").clicked() && self.import_window.is_none() {
                         self.import_window = Some(ImportWindow::default());
                     }
-                    if ui.button("Ingredients").clicked() && self.ingredient_window.is_none() {
-                        self.ingredient_window = Some(IngredientWindow::default());
+                    if ui.button("Ingredients").clicked() && self.ingredient_list_window.is_none() {
+                        self.ingredient_list_window = Some(IngredientListWindow::default());
                     }
                 });
             });
@@ -825,9 +825,9 @@ impl RecipeManager {
     }
 
     fn update_ingredient_window(&mut self, ctx: &egui::Context) {
-        if let Some(window) = &mut self.ingredient_window {
+        if let Some(window) = &mut self.ingredient_list_window {
             if window.update(&mut self.conn, &mut self.all_ingredients, ctx) {
-                self.ingredient_window = None;
+                self.ingredient_list_window = None;
             }
         }
     }
