@@ -20,6 +20,7 @@ use crate::database::models::{
 struct CategoryListWindow {
     categories: BTreeMap<String, RecipeCategoryId>,
     new_category_name: String,
+    edit_mode: bool,
 }
 
 impl CategoryListWindow {
@@ -34,6 +35,7 @@ impl CategoryListWindow {
                 .map(|cat| (cat.name, cat.id))
                 .collect(),
             new_category_name: String::new(),
+            edit_mode: false,
         }
     }
 
@@ -86,8 +88,10 @@ impl CategoryListWindow {
                         for (name, cat_id) in &self.categories {
                             let mut shown = recipe_list_windows.contains_key(&cat_id);
                             ui.toggle_value(&mut shown, name.clone());
-                            if ui.button("Delete").clicked() {
-                                categories_to_delete.push(*cat_id);
+                            if self.edit_mode {
+                                if ui.button("Delete").clicked() {
+                                    categories_to_delete.push(*cat_id);
+                                }
                             }
                             ui.end_row();
 
@@ -108,9 +112,10 @@ impl CategoryListWindow {
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut self.new_category_name)
-                        .desired_width(ui.available_width() - 50.0),
+                        .desired_width(ui.available_width() - 100.0),
                 );
                 add_category = ui.button("Add").clicked();
+                ui.toggle_value(&mut self.edit_mode, "Edit");
             });
         });
 
@@ -204,6 +209,7 @@ struct RecipeWindow {
     ingredients: Vec<(IngredientUsage, Ingredient)>,
     ingredient_being_edited: Option<IngredientBeingEdited>,
     new_ingredient: String,
+    edit_mode: bool,
 }
 
 impl RecipeWindow {
@@ -224,6 +230,7 @@ impl RecipeWindow {
             ingredients,
             ingredient_being_edited: None,
             new_ingredient: String::new(),
+            edit_mode: false,
         }
     }
 
@@ -371,7 +378,7 @@ impl RecipeWindow {
                         .map(|c| c.as_str())
                         .unwrap_or(""),
                 );
-                if self.ingredient_being_edited.is_none() {
+                if self.edit_mode && self.ingredient_being_edited.is_none() {
                     if ui.button("Edit").clicked() {
                         self.ingredient_being_edited =
                             Some(IngredientBeingEdited::new(ingredient, usage));
@@ -385,22 +392,24 @@ impl RecipeWindow {
             }
         });
 
-        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-            ui.label("Add Ingredient:");
-            ui.add(egui_dropdown::DropDownBox::from_iter(
-                all_ingredients.keys(),
-                "ingredient",
-                &mut self.new_ingredient,
-                |ui, text| ui.selectable_label(false, text),
-            ));
-            if ui.button("Add").clicked() {
-                if let Some(ingredient) = all_ingredients.get(&self.new_ingredient) {
-                    Self::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
-                    self.new_ingredient = "".into();
-                    refresh_self = true;
+        if self.edit_mode {
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                ui.label("Add Ingredient:");
+                ui.add(egui_dropdown::DropDownBox::from_iter(
+                    all_ingredients.keys(),
+                    "ingredient",
+                    &mut self.new_ingredient,
+                    |ui, text| ui.selectable_label(false, text),
+                ));
+                if ui.button("Add").clicked() {
+                    if let Some(ingredient) = all_ingredients.get(&self.new_ingredient) {
+                        Self::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
+                        self.new_ingredient = "".into();
+                        refresh_self = true;
+                    }
                 }
-            }
-        });
+            });
+        }
 
         if refresh_self {
             *self = Self::new(conn, self.recipe.id);
@@ -422,29 +431,38 @@ impl RecipeWindow {
                     .num_columns(2)
                     .show(ui, |ui| {
                         ui.label("Duration:");
-                        let mut selected = self.recipe.duration.clone();
-                        egui::ComboBox::from_id_salt("recipe duration")
-                            .selected_text(&selected.to_string())
-                            .show_ui(ui, |ui| {
-                                for d in RecipeDuration::iter() {
-                                    ui.selectable_value(&mut selected, d, d.to_string());
-                                }
-                            });
-                        if selected != self.recipe.duration {
-                            Self::edit_recipe_duration(conn, self.recipe.id, selected);
-                            self.recipe.duration = selected;
+                        if self.edit_mode {
+                            let mut selected = self.recipe.duration.clone();
+                            egui::ComboBox::from_id_salt("recipe duration")
+                                .selected_text(&selected.to_string())
+                                .show_ui(ui, |ui| {
+                                    for d in RecipeDuration::iter() {
+                                        ui.selectable_value(&mut selected, d, d.to_string());
+                                    }
+                                });
+                            if selected != self.recipe.duration {
+                                Self::edit_recipe_duration(conn, self.recipe.id, selected);
+                                self.recipe.duration = selected;
+                            }
+                        } else {
+                            ui.label(self.recipe.duration.to_string());
                         }
                         ui.end_row();
 
                         ui.label("Description:");
-                        let mut description = self.recipe.description.clone();
-                        ui.add(egui::TextEdit::multiline(&mut description));
-                        if description != self.recipe.description {
-                            Self::edit_recipe_description(conn, self.recipe.id, &description);
-                            self.recipe.description = description;
+                        if self.edit_mode {
+                            let mut description = self.recipe.description.clone();
+                            ui.add(egui::TextEdit::multiline(&mut description));
+                            if description != self.recipe.description {
+                                Self::edit_recipe_description(conn, self.recipe.id, &description);
+                                self.recipe.description = description;
+                            }
+                        } else {
+                            ui.label(&self.recipe.description);
                         }
                         ui.end_row();
                     });
+                ui.toggle_value(&mut self.edit_mode, "Edit");
             });
         !open
     }
