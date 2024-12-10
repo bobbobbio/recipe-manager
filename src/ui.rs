@@ -495,6 +495,38 @@ impl ImportWindow {
     }
 }
 
+#[derive(Default)]
+struct IngredientWindow;
+
+impl IngredientWindow {
+    fn update(
+        &mut self,
+        _conn: &mut database::Connection,
+        all_ingredients: &mut BTreeMap<String, Ingredient>,
+        ctx: &egui::Context,
+    ) -> bool {
+        let mut open = true;
+        egui::Window::new("Ingredients")
+            .open(&mut open)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    egui::Grid::new("All Ingredients").show(ui, |ui| {
+                        ui.label("Name");
+                        ui.label("Category");
+                        ui.end_row();
+
+                        for ingredient in all_ingredients.values() {
+                            ui.label(&ingredient.name);
+                            ui.label(ingredient.category.as_deref().unwrap_or(""));
+                            ui.end_row();
+                        }
+                    });
+                })
+            });
+        !open
+    }
+}
+
 pub struct RecipeManager {
     category_list: CategoryListWindow,
     conn: database::Connection,
@@ -502,6 +534,7 @@ pub struct RecipeManager {
     recipe_lists: HashMap<RecipeCategoryId, RecipeListWindow>,
     recipes: HashMap<RecipeId, RecipeWindow>,
     all_ingredients: BTreeMap<String, Ingredient>,
+    ingredient_window: Option<IngredientWindow>,
 }
 
 impl RecipeManager {
@@ -522,6 +555,7 @@ impl RecipeManager {
                 .into_iter()
                 .map(|i| (i.name.clone(), i))
                 .collect(),
+            ingredient_window: None,
         }
     }
 
@@ -556,6 +590,9 @@ impl RecipeManager {
                     if ui.button("Import").clicked() && self.import_window.is_none() {
                         self.import_window = Some(ImportWindow::default());
                     }
+                    if ui.button("Ingredients").clicked() && self.ingredient_window.is_none() {
+                        self.ingredient_window = Some(IngredientWindow::default());
+                    }
                 });
             });
         });
@@ -568,12 +605,21 @@ impl RecipeManager {
             }
         }
     }
+
+    fn update_ingredient_window(&mut self, ctx: &egui::Context) {
+        if let Some(window) = &mut self.ingredient_window {
+            if window.update(&mut self.conn, &mut self.all_ingredients, ctx) {
+                self.ingredient_window = None;
+            }
+        }
+    }
 }
 
 impl eframe::App for RecipeManager {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_menu(ctx);
         self.update_import_window(ctx);
+        self.update_ingredient_window(ctx);
         self.update_category_list_window(ctx);
         self.update_recipe_list_windows(ctx);
         self.update_recipes(ctx);
