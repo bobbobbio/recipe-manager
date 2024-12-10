@@ -40,6 +40,12 @@ pub enum RecipeDuration {
     ReallyLong,
 }
 
+impl RecipeDuration {
+    pub fn iter() -> impl Iterator<Item = Self> {
+        <Self as strum::IntoEnumIterator>::iter()
+    }
+}
+
 #[derive(DieselNewType, Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct RecipeCategoryId(i32);
 

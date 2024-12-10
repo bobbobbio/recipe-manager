@@ -9,7 +9,6 @@ use diesel::SelectableHelper as _;
 use eframe::egui;
 use std::collections::{BTreeMap, HashMap};
 use std::mem;
-use strum::IntoEnumIterator as _;
 
 use crate::database;
 use crate::database::models::{
