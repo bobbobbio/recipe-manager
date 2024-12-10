@@ -17,10 +17,16 @@ use crate::database::models::{
     RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
 
+struct CategoryBeingEdited {
+    id: RecipeCategoryId,
+    name: String,
+}
+
 struct CategoryListWindow {
     categories: BTreeMap<String, RecipeCategoryId>,
     new_category_name: String,
     edit_mode: bool,
+    category_being_edited: Option<CategoryBeingEdited>,
 }
 
 impl CategoryListWindow {
@@ -36,6 +42,7 @@ impl CategoryListWindow {
                 .collect(),
             new_category_name: String::new(),
             edit_mode: false,
+            category_being_edited: None,
         }
     }
 
@@ -70,12 +77,27 @@ impl CategoryListWindow {
         }
     }
 
+    fn edit_category(
+        conn: &mut database::Connection,
+        id_to_edit: RecipeCategoryId,
+        new_name: &str,
+    ) {
+        use database::schema::recipe_categories::dsl::*;
+        use diesel::update;
+
+        update(recipe_categories.filter(id.eq(id_to_edit)))
+            .set(name.eq(new_name))
+            .execute(conn)
+            .unwrap();
+    }
+
     fn update(
         &mut self,
         ctx: &egui::Context,
         conn: &mut database::Connection,
         recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
     ) {
+        let mut refresh_self = false;
         let mut categories_to_delete = vec![];
         let mut add_category = false;
         egui::Window::new("Categories").show(ctx, |ui| {
@@ -86,9 +108,30 @@ impl CategoryListWindow {
                 .show(ui, |ui| {
                     egui::Grid::new("categories grid").show(ui, |ui| {
                         for (name, cat_id) in &self.categories {
+                            if let Some(e) = &mut self.category_being_edited {
+                                if e.id == *cat_id {
+                                    ui.add(egui::TextEdit::singleline(&mut e.name));
+                                    if ui.button("Save").clicked() {
+                                        Self::edit_category(conn, e.id, &e.name);
+                                        if let Some(w) = recipe_list_windows.get_mut(&e.id) {
+                                            w.recipe_category.name = e.name.clone();
+                                        }
+                                        refresh_self = true;
+                                    }
+                                    ui.end_row();
+                                    continue;
+                                }
+                            }
+
                             let mut shown = recipe_list_windows.contains_key(&cat_id);
                             ui.toggle_value(&mut shown, name.clone());
                             if self.edit_mode {
+                                if ui.button("Edit").clicked() {
+                                    self.category_being_edited = Some(CategoryBeingEdited {
+                                        id: *cat_id,
+                                        name: name.clone(),
+                                    });
+                                }
                                 if ui.button("Delete").clicked() {
                                     categories_to_delete.push(*cat_id);
                                 }
@@ -121,7 +164,6 @@ impl CategoryListWindow {
             });
         });
 
-        let mut refresh_self = false;
         if add_category {
             Self::add_category(conn, &self.new_category_name);
             self.new_category_name = "".into();
@@ -198,6 +240,10 @@ impl RecipeListWindow {
         let mut open = true;
         let mut add_recipe = false;
         egui::Window::new(&self.recipe_category.name)
+            .id(egui::Id::new((
+                "recipe category list",
+                self.recipe_category.id,
+            )))
             .open(&mut open)
             .show(ctx, |ui| {
                 let scroll_height = ui.available_height() - 35.0;
@@ -499,6 +545,7 @@ impl RecipeWindow {
     ) -> bool {
         let mut open = true;
         egui::Window::new(self.recipe.name.clone())
+            .id(egui::Id::new(("recipe", self.recipe.id)))
             .open(&mut open)
             .show(ctx, |ui| {
                 self.update_ingredients(conn, all_ingredients, ui);
