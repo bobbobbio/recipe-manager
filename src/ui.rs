@@ -37,16 +37,35 @@ impl CategoryListWindow {
         }
     }
 
-    fn add_category(&mut self, conn: &mut database::Connection) {
+    fn add_category(conn: &mut database::Connection, new_category_name: &str) {
         use database::schema::recipe_categories::dsl::*;
         use diesel::insert_into;
 
         insert_into(recipe_categories)
-            .values(name.eq(&self.new_category_name))
+            .values(name.eq(new_category_name))
             .execute(conn)
             .unwrap();
+    }
 
-        *self = Self::new(conn);
+    fn delete_category(conn: &mut database::Connection, id_to_delete: RecipeCategoryId) {
+        let count: i64 = {
+            use database::schema::recipes::dsl::*;
+
+            recipes
+                .filter(category.eq(id_to_delete))
+                .count()
+                .get_result(conn)
+                .unwrap()
+        };
+
+        if count == 0 {
+            use database::schema::recipe_categories::dsl::*;
+            use diesel::delete;
+
+            delete(recipe_categories.filter(id.eq(id_to_delete)))
+                .execute(conn)
+                .unwrap();
+        }
     }
 
     fn update(
@@ -55,26 +74,35 @@ impl CategoryListWindow {
         conn: &mut database::Connection,
         recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
     ) {
+        let mut categories_to_delete = vec![];
+        let mut add_category = false;
         egui::Window::new("Categories").show(ctx, |ui| {
             let scroll_height = ui.available_height() - 35.0;
             egui::ScrollArea::vertical()
                 .auto_shrink(false)
                 .max_height(scroll_height)
                 .show(ui, |ui| {
-                    for (name, cat_id) in &self.categories {
-                        let mut shown = recipe_list_windows.contains_key(&cat_id);
-                        ui.toggle_value(&mut shown, name.clone());
+                    egui::Grid::new("categories grid").show(ui, |ui| {
+                        for (name, cat_id) in &self.categories {
+                            let mut shown = recipe_list_windows.contains_key(&cat_id);
+                            ui.toggle_value(&mut shown, name.clone());
+                            if ui.button("Delete").clicked() {
+                                categories_to_delete.push(*cat_id);
+                            }
+                            ui.end_row();
 
-                        if shown && !recipe_list_windows.contains_key(&cat_id) {
-                            let cat = RecipeCategory {
-                                id: *cat_id,
-                                name: name.clone(),
-                            };
-                            recipe_list_windows.insert(*cat_id, RecipeListWindow::new(conn, cat));
-                        } else if !shown {
-                            recipe_list_windows.remove(cat_id);
+                            if shown && !recipe_list_windows.contains_key(&cat_id) {
+                                let cat = RecipeCategory {
+                                    id: *cat_id,
+                                    name: name.clone(),
+                                };
+                                recipe_list_windows
+                                    .insert(*cat_id, RecipeListWindow::new(conn, cat));
+                            } else if !shown {
+                                recipe_list_windows.remove(cat_id);
+                            }
                         }
-                    }
+                    });
                 });
             ui.separator();
             ui.horizontal(|ui| {
@@ -82,11 +110,25 @@ impl CategoryListWindow {
                     egui::TextEdit::singleline(&mut self.new_category_name)
                         .desired_width(ui.available_width() - 50.0),
                 );
-                if ui.button("Add").clicked() {
-                    self.add_category(conn)
-                }
+                add_category = ui.button("Add").clicked();
             });
         });
+
+        let mut refresh_self = false;
+        if add_category {
+            Self::add_category(conn, &self.new_category_name);
+            self.new_category_name = "".into();
+            refresh_self = true;
+        }
+        for cat in categories_to_delete {
+            Self::delete_category(conn, cat);
+            refresh_self = true;
+            recipe_list_windows.remove(&cat);
+        }
+
+        if refresh_self {
+            *self = Self::new(conn);
+        }
     }
 }
 
