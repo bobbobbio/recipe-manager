@@ -9,11 +9,12 @@ use diesel::SelectableHelper as _;
 use eframe::egui;
 use std::collections::{BTreeMap, HashMap};
 use std::mem;
+use strum::IntoEnumIterator as _;
 
 use crate::database;
 use crate::database::models::{
     Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe, RecipeCategory,
-    RecipeCategoryId, RecipeHandle, RecipeId,
+    RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
 
 struct CategoryListWindow {
@@ -213,6 +214,36 @@ impl RecipeWindow {
             .unwrap();
     }
 
+    fn edit_recipe_duration(
+        conn: &mut database::Connection,
+        recipe_id: RecipeId,
+        new_duration: RecipeDuration,
+    ) {
+        use database::schema::recipes::dsl::*;
+        use diesel::update;
+
+        update(recipes)
+            .filter(id.eq(recipe_id))
+            .set(duration.eq(new_duration))
+            .execute(conn)
+            .unwrap();
+    }
+
+    fn edit_recipe_description(
+        conn: &mut database::Connection,
+        recipe_id: RecipeId,
+        new_description: &str,
+    ) {
+        use database::schema::recipes::dsl::*;
+        use diesel::update;
+
+        update(recipes)
+            .filter(id.eq(recipe_id))
+            .set(description.eq(new_description))
+            .execute(conn)
+            .unwrap();
+    }
+
     fn update_ingredients(
         &mut self,
         conn: &mut database::Connection,
@@ -307,12 +338,33 @@ impl RecipeWindow {
             .open(&mut open)
             .show(ctx, |ui| {
                 self.update_ingredients(conn, all_ingredients, ui);
-                ui.label("duration:");
-                let mut duration = format!("{:?}", &self.recipe.duration);
-                ui.add(egui::TextEdit::singleline(&mut duration));
-                ui.label("description:");
-                let mut description = self.recipe.description.clone();
-                ui.add(egui::TextEdit::singleline(&mut description));
+                egui::Grid::new("Recipe Information")
+                    .num_columns(2)
+                    .show(ui, |ui| {
+                        ui.label("Duration:");
+                        let mut selected = self.recipe.duration.clone();
+                        egui::ComboBox::from_id_salt("recipe duration")
+                            .selected_text(&selected.to_string())
+                            .show_ui(ui, |ui| {
+                                for d in RecipeDuration::iter() {
+                                    ui.selectable_value(&mut selected, d, d.to_string());
+                                }
+                            });
+                        if selected != self.recipe.duration {
+                            Self::edit_recipe_duration(conn, self.recipe.id, selected);
+                            self.recipe.duration = selected;
+                        }
+                        ui.end_row();
+
+                        ui.label("Description:");
+                        let mut description = self.recipe.description.clone();
+                        ui.add(egui::TextEdit::multiline(&mut description));
+                        if description != self.recipe.description {
+                            Self::edit_recipe_description(conn, self.recipe.id, &description);
+                            self.recipe.description = description;
+                        }
+                        ui.end_row();
+                    });
             });
         !open
     }

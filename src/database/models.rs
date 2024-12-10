@@ -1,5 +1,6 @@
 // Copyright 2023 Remi Bernotavicius
 
+use derive_more::Display;
 use diesel::associations::{Associations, Identifiable};
 use diesel::deserialize::Queryable;
 use diesel::expression::Selectable;
@@ -27,11 +28,15 @@ pub struct Ingredient {
     pub category: Option<String>,
 }
 
-#[derive(Debug, Hash, Copy, Clone, PartialEq, Eq, DbEnum)]
+#[derive(Debug, Display, EnumIter, Hash, Copy, Clone, PartialEq, Eq, DbEnum)]
 pub enum RecipeDuration {
+    #[display("short")]
     Short,
+    #[display("medium")]
     Medium,
+    #[display("long")]
     Long,
+    #[display("really long")]
     ReallyLong,
 }
 
