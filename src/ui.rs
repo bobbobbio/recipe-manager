@@ -17,7 +17,7 @@ use crate::database::models::{
 };
 
 struct CategoryListWindow {
-    categories: HashMap<RecipeCategoryId, (RecipeCategory, bool)>,
+    categories: BTreeMap<String, RecipeCategoryId>,
     new_category_name: String,
 }
 
@@ -30,7 +30,7 @@ impl CategoryListWindow {
                 .load(conn)
                 .unwrap()
                 .into_iter()
-                .map(|cat| (cat.id, (cat, false)))
+                .map(|cat| (cat.name, cat.id))
                 .collect(),
             new_category_name: String::new(),
         }
@@ -48,7 +48,12 @@ impl CategoryListWindow {
         *self = Self::new(conn);
     }
 
-    fn update(&mut self, ctx: &egui::Context, conn: &mut database::Connection) {
+    fn update(
+        &mut self,
+        ctx: &egui::Context,
+        conn: &mut database::Connection,
+        recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
+    ) {
         egui::Window::new("Categories").show(ctx, |ui| {
             let scroll_height = ui.available_height() - 30.0;
 
@@ -56,11 +61,19 @@ impl CategoryListWindow {
                 .auto_shrink([false, false])
                 .max_height(scroll_height)
                 .show(ui, |ui| {
-                    let mut sorted_categories: Vec<_> = self.categories.values_mut().collect();
-                    sorted_categories.sort_by(|a, b| a.0.name.cmp(&b.0.name));
+                    for (name, cat_id) in &self.categories {
+                        let mut shown = recipe_list_windows.contains_key(&cat_id);
+                        ui.toggle_value(&mut shown, name.clone());
 
-                    for (cat, shown) in sorted_categories {
-                        ui.toggle_value(shown, cat.name.clone());
+                        if shown && !recipe_list_windows.contains_key(&cat_id) {
+                            let cat = RecipeCategory {
+                                id: *cat_id,
+                                name: name.clone(),
+                            };
+                            recipe_list_windows.insert(*cat_id, RecipeListWindow::new(conn, cat));
+                        } else if !shown {
+                            recipe_list_windows.remove(cat_id);
+                        }
                     }
                 });
             ui.horizontal(|ui| {
@@ -78,7 +91,7 @@ impl CategoryListWindow {
 
 struct RecipeListWindow {
     name: String,
-    recipes: Vec<RecipeHandle>,
+    recipes: BTreeMap<String, RecipeId>,
 }
 
 impl RecipeListWindow {
@@ -90,25 +103,36 @@ impl RecipeListWindow {
                 .select(RecipeHandle::as_select())
                 .filter(category.eq(recipe_category.id))
                 .load(conn)
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|h| (h.name, h.id))
+                .collect(),
         }
     }
 
-    fn update(&self, ctx: &egui::Context) -> (bool, Vec<RecipeId>) {
+    fn update(
+        &self,
+        ctx: &egui::Context,
+        conn: &mut database::Connection,
+        recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
+    ) -> bool {
         let mut open = true;
-        let mut recipes_to_show = vec![];
         egui::Window::new(self.name.clone())
             .open(&mut open)
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    for recipe in &self.recipes {
-                        if ui.button(recipe.name.clone()).clicked() {
-                            recipes_to_show.push(recipe.id);
+                    for (name, id) in &self.recipes {
+                        let mut shown = recipe_windows.contains_key(&id);
+                        ui.toggle_value(&mut shown, name.clone());
+                        if shown && !recipe_windows.contains_key(&id) {
+                            recipe_windows.insert(*id, RecipeWindow::new(conn, *id));
+                        } else if !shown {
+                            recipe_windows.remove(id);
                         }
                     }
                 });
             });
-        (!open, recipes_to_show)
+        !open
     }
 }
 
@@ -386,7 +410,7 @@ pub struct RecipeManager {
     conn: database::Connection,
     import_window: Option<ImportWindow>,
     recipe_lists: HashMap<RecipeCategoryId, RecipeListWindow>,
-    recipes: Vec<RecipeWindow>,
+    recipes: HashMap<RecipeId, RecipeWindow>,
     all_ingredients: BTreeMap<String, Ingredient>,
 }
 
@@ -412,48 +436,25 @@ impl RecipeManager {
     }
 
     fn update_category_list_window(&mut self, ctx: &egui::Context) {
-        self.category_list.update(ctx, &mut self.conn);
-        let categories: HashMap<_, _> = self
-            .category_list
-            .categories
-            .values()
-            .filter(|(_, shown)| *shown)
-            .map(|(cat, _)| (cat.id.clone(), cat.clone()))
-            .collect();
-        self.recipe_lists
-            .retain(|key, _| categories.contains_key(key));
-        for (_, cat) in categories {
-            if !self.recipe_lists.contains_key(&cat.id) {
-                self.recipe_lists
-                    .insert(cat.id, RecipeListWindow::new(&mut self.conn, cat));
-            }
-        }
-    }
-
-    fn show_recipe(&mut self, recipe_id: RecipeId) {
-        self.recipes
-            .push(RecipeWindow::new(&mut self.conn, recipe_id));
+        self.category_list
+            .update(ctx, &mut self.conn, &mut self.recipe_lists);
     }
 
     fn update_recipe_list_windows(&mut self, ctx: &egui::Context) {
         for (id, list) in mem::take(&mut self.recipe_lists) {
-            let (closed, recipes_shown) = list.update(ctx);
-            for recipe_id in recipes_shown {
-                self.show_recipe(recipe_id);
-            }
+            let closed = list.update(ctx, &mut self.conn, &mut self.recipes);
+
             if !closed {
                 self.recipe_lists.insert(id, list);
-            } else {
-                self.category_list.categories.get_mut(&id).unwrap().1 = false;
             }
         }
     }
 
     fn update_recipes(&mut self, ctx: &egui::Context) {
-        for mut recipe in mem::take(&mut self.recipes) {
+        for (id, mut recipe) in mem::take(&mut self.recipes) {
             let closed = recipe.update(ctx, &mut self.conn, &self.all_ingredients);
             if !closed {
-                self.recipes.push(recipe);
+                self.recipes.insert(id, recipe);
             }
         }
     }
