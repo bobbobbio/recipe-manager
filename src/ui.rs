@@ -13,8 +13,8 @@ use strum::IntoEnumIterator as _;
 
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe, RecipeCategory,
-    RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
+    Ingredient, IngredientId, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
+    RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
 
 struct CategoryListWindow {
@@ -161,6 +161,7 @@ struct RecipeWindow {
     recipe: Recipe,
     ingredients: Vec<(IngredientUsage, Ingredient)>,
     ingredient_being_edited: Option<IngredientBeingEdited>,
+    new_ingredient: String,
 }
 
 impl RecipeWindow {
@@ -180,6 +181,7 @@ impl RecipeWindow {
             recipe,
             ingredients,
             ingredient_being_edited: None,
+            new_ingredient: String::new(),
         }
     }
 
@@ -189,6 +191,25 @@ impl RecipeWindow {
 
         delete(ingredient_usages)
             .filter(id.eq(usage_id))
+            .execute(conn)
+            .unwrap();
+    }
+
+    fn add_recipe_ingredient(
+        conn: &mut database::Connection,
+        new_recipe_id: RecipeId,
+        new_ingredient_id: IngredientId,
+        new_quantity: f32,
+    ) {
+        use database::schema::ingredient_usages::dsl::*;
+        use diesel::insert_into;
+
+        insert_into(ingredient_usages)
+            .values((
+                recipe_id.eq(new_recipe_id),
+                ingredient_id.eq(new_ingredient_id),
+                quantity.eq(new_quantity),
+            ))
             .execute(conn)
             .unwrap();
     }
@@ -253,10 +274,10 @@ impl RecipeWindow {
         let mut refresh_self = false;
         let name = &self.recipe.name;
         egui::Grid::new(format!("{name} ingredients")).show(ui, |ui| {
-            ui.label("name");
-            ui.label("category");
-            ui.label("quantity");
-            ui.label("measurement");
+            ui.label("Name");
+            ui.label("Category");
+            ui.label("Quantity");
+            ui.label("Measurement");
             ui.end_row();
 
             for (usage, ingredient) in &self.ingredients {
@@ -283,7 +304,7 @@ impl RecipeWindow {
                                 }
                                 ui.selectable_value(&mut e.quantity_units, None, "");
                             });
-                        if ui.button("save").clicked() && all_ingredients.contains_key(&e.name) {
+                        if ui.button("Save").clicked() && all_ingredients.contains_key(&e.name) {
                             Self::edit_recipe_ingredient(
                                 conn,
                                 e.id,
@@ -309,16 +330,33 @@ impl RecipeWindow {
                         .unwrap_or(""),
                 );
                 if self.ingredient_being_edited.is_none() {
-                    if ui.button("edit").clicked() {
+                    if ui.button("Edit").clicked() {
                         self.ingredient_being_edited =
                             Some(IngredientBeingEdited::new(ingredient, usage));
                     }
-                    if ui.button("delete").clicked() {
+                    if ui.button("Delete").clicked() {
                         Self::delete_recipe_ingredient(conn, usage.id);
                         refresh_self = true;
                     }
                 }
                 ui.end_row();
+            }
+        });
+
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+            ui.label("Add Ingredient:");
+            ui.add(egui_dropdown::DropDownBox::from_iter(
+                all_ingredients.keys(),
+                "ingredient",
+                &mut self.new_ingredient,
+                |ui, text| ui.selectable_label(false, text),
+            ));
+            if ui.button("Add").clicked() {
+                if let Some(ingredient) = all_ingredients.get(&self.new_ingredient) {
+                    Self::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
+                    self.new_ingredient = "".into();
+                    refresh_self = true;
+                }
             }
         });
 
