@@ -435,6 +435,17 @@ impl RecipeWindow {
             .unwrap();
     }
 
+    fn edit_recipe_name(conn: &mut database::Connection, recipe_id: RecipeId, new_name: &str) {
+        use database::schema::recipes::dsl::*;
+        use diesel::update;
+
+        update(recipes)
+            .filter(id.eq(recipe_id))
+            .set(name.eq(new_name))
+            .execute(conn)
+            .unwrap();
+    }
+
     fn update_ingredients(
         &mut self,
         conn: &mut database::Connection,
@@ -552,6 +563,16 @@ impl RecipeWindow {
                 egui::Grid::new("Recipe Information")
                     .num_columns(2)
                     .show(ui, |ui| {
+                        if self.edit_mode {
+                            ui.label("Name:");
+                            let mut name = self.recipe.name.clone();
+                            ui.add(egui::TextEdit::singleline(&mut name));
+                            if name != self.recipe.name {
+                                Self::edit_recipe_name(conn, self.recipe.id, &name);
+                                self.recipe.name = name.clone();
+                            }
+                            ui.end_row();
+                        }
                         ui.label("Duration:");
                         if self.edit_mode {
                             let mut selected = self.recipe.duration.clone();
@@ -758,7 +779,17 @@ impl RecipeManager {
 
     fn update_recipes(&mut self, ctx: &egui::Context) {
         for (id, mut recipe) in mem::take(&mut self.recipes) {
+            let old_name = recipe.recipe.name.clone();
             let closed = recipe.update(ctx, &mut self.conn, &self.all_ingredients);
+
+            if old_name != recipe.recipe.name {
+                if let Some(list) = self.recipe_lists.get_mut(&recipe.recipe.category) {
+                    list.recipes.remove(&old_name);
+                    list.recipes
+                        .insert(recipe.recipe.name.clone(), recipe.recipe.id);
+                }
+            }
+
             if !closed {
                 self.recipes.insert(id, recipe);
             }
