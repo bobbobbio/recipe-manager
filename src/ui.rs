@@ -111,11 +111,13 @@ impl CategoryListWindow {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.toggle_value(&mut self.edit_mode, "Edit");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.new_category_name)
-                        .desired_width(ui.available_width() - 100.0),
-                );
-                add_category = ui.button("Add").clicked();
+                if self.edit_mode {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.new_category_name)
+                            .desired_width(ui.available_width() - 100.0),
+                    );
+                    add_category = ui.button("Add").clicked();
+                }
             });
         });
 
@@ -141,6 +143,7 @@ struct RecipeListWindow {
     recipe_category: RecipeCategory,
     recipes: BTreeMap<String, RecipeId>,
     edit_mode: bool,
+    new_recipe_name: String,
 }
 
 impl RecipeListWindow {
@@ -157,6 +160,7 @@ impl RecipeListWindow {
                 .collect(),
             recipe_category,
             edit_mode: false,
+            new_recipe_name: String::new(),
         }
     }
 
@@ -169,6 +173,21 @@ impl RecipeListWindow {
             .unwrap();
     }
 
+    fn add_recipe(conn: &mut database::Connection, new_name: &str, new_category: RecipeCategoryId) {
+        use database::schema::recipes::dsl::*;
+        use diesel::insert_into;
+
+        insert_into(recipes)
+            .values((
+                name.eq(new_name),
+                description.eq(""),
+                duration.eq(RecipeDuration::Short),
+                category.eq(new_category),
+            ))
+            .execute(conn)
+            .unwrap();
+    }
+
     fn update(
         &mut self,
         ctx: &egui::Context,
@@ -177,6 +196,7 @@ impl RecipeListWindow {
     ) -> bool {
         let mut recipes_to_delete = vec![];
         let mut open = true;
+        let mut add_recipe = false;
         egui::Window::new(&self.recipe_category.name)
             .open(&mut open)
             .show(ctx, |ui| {
@@ -206,7 +226,16 @@ impl RecipeListWindow {
                         });
                     });
                 ui.separator();
-                ui.toggle_value(&mut self.edit_mode, "Edit");
+                ui.horizontal(|ui| {
+                    ui.toggle_value(&mut self.edit_mode, "Edit");
+                    if self.edit_mode {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.new_recipe_name)
+                                .desired_width(ui.available_width() - 100.0),
+                        );
+                        add_recipe = ui.button("Add").clicked();
+                    }
+                });
             });
 
         let mut refresh_self = false;
@@ -214,6 +243,12 @@ impl RecipeListWindow {
             Self::delete_recipe(conn, recipe);
             refresh_self = true;
             recipe_windows.remove(&recipe);
+        }
+
+        if add_recipe {
+            Self::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
+            self.new_recipe_name = "".into();
+            refresh_self = true;
         }
 
         if refresh_self {
