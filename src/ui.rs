@@ -56,10 +56,9 @@ impl CategoryListWindow {
         recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
     ) {
         egui::Window::new("Categories").show(ctx, |ui| {
-            let scroll_height = ui.available_height() - 30.0;
-
+            let scroll_height = ui.available_height() - 35.0;
             egui::ScrollArea::vertical()
-                .auto_shrink([false, false])
+                .auto_shrink(false)
                 .max_height(scroll_height)
                 .show(ui, |ui| {
                     for (name, cat_id) in &self.categories {
@@ -77,6 +76,7 @@ impl CategoryListWindow {
                         }
                     }
                 });
+            ui.separator();
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut self.new_category_name)
