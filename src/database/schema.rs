@@ -1,6 +1,13 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    calendar (day) {
+        day -> Date,
+        recipe_id -> Integer,
+    }
+}
+
+diesel::table! {
     ingredient_usages (id) {
         id -> Integer,
         recipe_id -> Integer,
@@ -35,11 +42,13 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(calendar -> recipes (recipe_id));
 diesel::joinable!(ingredient_usages -> ingredients (ingredient_id));
 diesel::joinable!(ingredient_usages -> recipes (recipe_id));
 diesel::joinable!(recipes -> recipe_categories (category));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    calendar,
     ingredient_usages,
     ingredients,
     recipe_categories,

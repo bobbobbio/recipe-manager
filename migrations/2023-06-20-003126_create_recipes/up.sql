@@ -39,3 +39,9 @@ CREATE TABLE ingredient_usages (
     FOREIGN KEY(recipe_id) REFERENCES recipes(id),
     FOREIGN KEY(ingredient_id) REFERENCES ingredients(id)
 );
+
+CREATE TABLE calendar (
+    day DATE PRIMARY KEY NOT NULL,
+    recipe_id INTEGER NOT NULL,
+    FOREIGN KEY(recipe_id) REFERENCES recipes(id)
+);
