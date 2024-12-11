@@ -2,6 +2,7 @@
 
 use plist::dictionary::Dictionary;
 use plist::{Uid, Value};
+use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 
@@ -17,6 +18,7 @@ enum DecodeError {
         actual: &'static str,
     },
     Utf8(std::str::Utf8Error),
+    BadDate,
 }
 
 impl fmt::Display for DecodeError {
@@ -32,6 +34,7 @@ impl fmt::Display for DecodeError {
                 "decode error: expected type {expected:?} but found type {actual:?}"
             ),
             Self::Utf8(e) => write!(f, "decode error: {e}"),
+            Self::BadDate => write!(f, "decode error: bad date"),
         }
     }
 }
@@ -437,9 +440,71 @@ pub fn decode_recipes_from_path(path: impl AsRef<Path>) -> crate::Result<Vec<Rec
     Ok(decode_recipes(&value)?)
 }
 
-pub fn decode_calendar_from_path(path: impl AsRef<Path>) -> crate::Result<()> {
+#[derive(Copy, Clone, Debug, derive_more::Display, strum::EnumIter, Hash, PartialEq, Eq)]
+pub enum DayOfWeek {
+    #[display("Sunday")]
+    Sunday,
+    #[display("Monday")]
+    Monday,
+    #[display("Tuesday")]
+    Tuesday,
+    #[display("Wednesday")]
+    Wednesday,
+    #[display("Thursday")]
+    Thursday,
+    #[display("Friday")]
+    Friday,
+    #[display("Saturday")]
+    Saturday,
+}
+
+impl DayOfWeek {
+    pub fn iter() -> impl Iterator<Item = Self> {
+        <Self as strum::IntoEnumIterator>::iter()
+    }
+}
+
+#[derive(Debug)]
+pub struct RecipeWeek {
+    #[expect(dead_code)]
+    pub days: HashMap<DayOfWeek, String>,
+    #[expect(dead_code)]
+    pub date: chrono::DateTime<chrono::Utc>,
+}
+
+// This is January 1st 2001 as a Unix timestamp.
+const MAC_EPOCH: u64 = 978307200;
+
+fn decode_calendar(root: &Value) -> Result<Vec<RecipeWeek>> {
+    let mut weeks_out = vec![];
+    let root = root.as_dictionary_or_error()?;
+    let weeks = root.get_array_or_error("weeks")?;
+
+    for w in weeks.iter_as_dictionary_or_error()? {
+        let days = w.get_dictionary_or_error("days")?;
+
+        let mut days_out = HashMap::new();
+        for d in DayOfWeek::iter() {
+            let recipe = days.get_string_or_error(&d.to_string())?;
+            days_out.insert(d, recipe.into());
+        }
+
+        let properties = w.get_dictionary_or_error("properties")?;
+        let date = MAC_EPOCH as f64 + properties.get_real_or_error("Date")?;
+        weeks_out.push(RecipeWeek {
+            days: days_out,
+            date: chrono::DateTime::from_timestamp(
+                date as i64,
+                (date % 0.0) as u32 * 1_000_000_000,
+            )
+            .ok_or_else(|| DecodeError::BadDate)?,
+        })
+    }
+    Ok(weeks_out)
+}
+
+pub fn decode_calendar_from_path(path: impl AsRef<Path>) -> crate::Result<Vec<RecipeWeek>> {
     let contents = Value::from_file(path)?;
     let value = decode(&contents)?;
-    println!("{value:#?}");
-    Ok(())
+    Ok(decode_calendar(&value)?)
 }

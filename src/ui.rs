@@ -621,7 +621,7 @@ enum ImportWindow {
     #[default]
     Ready,
     Running {
-        importer: crate::import::Importer,
+        importer: crate::import::RecipeImporter,
     },
     Failed {
         error: crate::Error,
@@ -660,7 +660,7 @@ impl ImportWindow {
                 .set_directory("/")
                 .pick_file()
             {
-                return Some(match import::Importer::new(file) {
+                return Some(match import::RecipeImporter::new(file) {
                     Ok(importer) => Self::Running { importer },
                     Err(error) => Self::Failed { error },
                 });
@@ -671,7 +671,7 @@ impl ImportWindow {
 
     fn update_running(
         conn: &mut database::Connection,
-        importer: &mut import::Importer,
+        importer: &mut import::RecipeImporter,
         ui: &mut egui::Ui,
     ) -> Option<Self> {
         ui.label("importing data..");

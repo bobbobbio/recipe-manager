@@ -158,7 +158,7 @@ fn import_recipe_category(
     Ok(id)
 }
 
-pub struct Importer {
+pub struct RecipeImporter {
     recipe_boxes: Vec<plist::RecipeBox>,
     working_recipe_box: Option<(RecipeCategoryId, plist::RecipeBox)>,
 
@@ -171,7 +171,7 @@ pub struct Importer {
     ingredient_id_vendor: IngredientId,
 }
 
-impl Importer {
+impl RecipeImporter {
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         let recipe_boxes = plist::decode_recipes_from_path(path)?;
 
@@ -241,7 +241,7 @@ impl Importer {
 }
 
 pub fn import_recipes(mut conn: database::Connection, path: impl AsRef<Path>) -> Result<()> {
-    let mut importer = Importer::new(path)?;
+    let mut importer = RecipeImporter::new(path)?;
 
     while !importer.done() {
         importer.import_one(&mut conn)?;
@@ -251,7 +251,47 @@ pub fn import_recipes(mut conn: database::Connection, path: impl AsRef<Path>) ->
     Ok(())
 }
 
-pub fn import_calendar(_conn: database::Connection, path: impl AsRef<Path>) -> Result<()> {
-    plist::decode_calendar_from_path(path)?;
+pub struct CalendarImporter {
+    recipe_weeks: Vec<plist::RecipeWeek>,
+    num_imported: usize,
+}
+
+impl CalendarImporter {
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let recipe_weeks = plist::decode_calendar_from_path(path)?;
+
+        Ok(Self {
+            recipe_weeks,
+            num_imported: 0,
+        })
+    }
+
+    pub fn done(&self) -> bool {
+        self.recipe_weeks.is_empty()
+    }
+
+    #[expect(dead_code)]
+    pub fn num_imported(&self) -> usize {
+        self.num_imported
+    }
+
+    pub fn percent_done(&self) -> f32 {
+        self.num_imported as f32 / (self.recipe_weeks.len() + self.num_imported) as f32
+    }
+
+    pub fn import_one(&mut self, _conn: &mut database::Connection) -> Result<()> {
+        assert!(!self.done());
+
+        Ok(())
+    }
+}
+pub fn import_calendar(mut conn: database::Connection, path: impl AsRef<Path>) -> Result<()> {
+    let mut importer = CalendarImporter::new(path)?;
+
+    while !importer.done() {
+        importer.import_one(&mut conn)?;
+        println!("imported {}%", importer.percent_done() * 100.0);
+    }
+
     Ok(())
 }
