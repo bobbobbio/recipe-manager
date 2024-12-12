@@ -158,6 +158,13 @@ fn import_recipe_category(
     Ok(id)
 }
 
+pub trait Importer {
+    fn import_one(&mut self, conn: &mut database::Connection) -> Result<()>;
+    fn percent_done(&self) -> f32;
+    fn done(&self) -> bool;
+    fn num_imported(&self) -> usize;
+}
+
 pub struct RecipeImporter {
     recipe_boxes: Vec<plist::RecipeBox>,
     working_recipe_box: Option<(RecipeCategoryId, plist::RecipeBox)>,
@@ -190,20 +197,22 @@ impl RecipeImporter {
             ingredient_id_vendor: IngredientId::INITIAL,
         })
     }
+}
 
-    pub fn done(&self) -> bool {
+impl Importer for RecipeImporter {
+    fn done(&self) -> bool {
         self.recipe_boxes.is_empty() && self.working_recipe_box.is_none()
     }
 
-    pub fn num_imported(&self) -> usize {
+    fn num_imported(&self) -> usize {
         self.num_imported
     }
 
-    pub fn percent_done(&self) -> f32 {
+    fn percent_done(&self) -> f32 {
         self.num_imported as f32 / self.total_num_recipes as f32
     }
 
-    pub fn import_one(&mut self, conn: &mut database::Connection) -> Result<()> {
+    fn import_one(&mut self, conn: &mut database::Connection) -> Result<()> {
         assert!(!self.done());
 
         if self.working_recipe_box.is_none() {
@@ -292,21 +301,22 @@ impl CalendarImporter {
             num_imported: 0,
         })
     }
+}
 
-    pub fn done(&self) -> bool {
+impl Importer for CalendarImporter {
+    fn done(&self) -> bool {
         self.recipe_weeks.is_empty()
     }
 
-    #[expect(dead_code)]
-    pub fn num_imported(&self) -> usize {
+    fn num_imported(&self) -> usize {
         self.num_imported
     }
 
-    pub fn percent_done(&self) -> f32 {
+    fn percent_done(&self) -> f32 {
         self.num_imported as f32 / (self.recipe_weeks.len() + self.num_imported) as f32
     }
 
-    pub fn import_one(&mut self, conn: &mut database::Connection) -> Result<()> {
+    fn import_one(&mut self, conn: &mut database::Connection) -> Result<()> {
         assert!(!self.done());
 
         let week = self.recipe_weeks.pop().unwrap();

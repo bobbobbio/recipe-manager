@@ -620,8 +620,11 @@ impl RecipeWindow {
 enum ImportWindow {
     #[default]
     Ready,
-    Running {
+    ImportingRecipes {
         importer: crate::import::RecipeImporter,
+    },
+    ImportingCalendar {
+        importer: crate::import::CalendarImporter,
     },
     Failed {
         error: crate::Error,
@@ -639,9 +642,13 @@ impl ImportWindow {
             .show(ctx, |ui| {
                 let next = match self {
                     Self::Ready => Self::update_ready(ui),
-                    Self::Running { importer } => {
+                    Self::ImportingRecipes { importer } => {
                         ctx.request_repaint_after(std::time::Duration::from_millis(0));
-                        Self::update_running(conn, importer, ui)
+                        Self::update_importing(conn, importer, ui)
+                    }
+                    Self::ImportingCalendar { importer } => {
+                        ctx.request_repaint_after(std::time::Duration::from_millis(0));
+                        Self::update_importing(conn, importer, ui)
                     }
                     Self::Failed { error } => Self::update_failed(error, ui),
                     Self::Success { num_imported } => Self::update_success(*num_imported, ui),
@@ -654,14 +661,26 @@ impl ImportWindow {
     }
 
     fn update_ready(ui: &mut egui::Ui) -> Option<Self> {
-        if ui.button("import data").clicked() {
+        if ui.button("import recipes").clicked() {
             if let Some(file) = rfd::FileDialog::new()
                 .add_filter("recipebook", &["recipebook"])
                 .set_directory("/")
                 .pick_file()
             {
                 return Some(match import::RecipeImporter::new(file) {
-                    Ok(importer) => Self::Running { importer },
+                    Ok(importer) => Self::ImportingRecipes { importer },
+                    Err(error) => Self::Failed { error },
+                });
+            }
+        }
+        if ui.button("import calendar").clicked() {
+            if let Some(file) = rfd::FileDialog::new()
+                .add_filter("recipecalendar", &["recipecalendar"])
+                .set_directory("/")
+                .pick_file()
+            {
+                return Some(match import::CalendarImporter::new(file) {
+                    Ok(importer) => Self::ImportingCalendar { importer },
                     Err(error) => Self::Failed { error },
                 });
             }
@@ -669,9 +688,9 @@ impl ImportWindow {
         None
     }
 
-    fn update_running(
+    fn update_importing(
         conn: &mut database::Connection,
-        importer: &mut import::RecipeImporter,
+        importer: &mut impl import::Importer,
         ui: &mut egui::Ui,
     ) -> Option<Self> {
         ui.label("importing data..");
