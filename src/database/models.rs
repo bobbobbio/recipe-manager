@@ -143,3 +143,12 @@ pub struct IngredientUsage {
     pub quantity: f32,
     pub quantity_units: Option<IngredientMeasurement>,
 }
+
+#[derive(Associations, Queryable, Selectable, Identifiable, Insertable, Clone)]
+#[diesel(belongs_to(RecipeCategory, foreign_key = recipe_id))]
+#[diesel(primary_key(day))]
+#[diesel(table_name = crate::database::schema::calendar)]
+pub struct CalendarEntry {
+    pub day: chrono::NaiveDate,
+    pub recipe_id: RecipeId,
+}

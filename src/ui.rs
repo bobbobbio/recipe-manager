@@ -735,6 +735,93 @@ impl IngredientListWindow {
     }
 }
 
+struct CalendarWindow {
+    start: chrono::NaiveWeek,
+    week: HashMap<chrono::Weekday, RecipeHandle>,
+}
+
+impl CalendarWindow {
+    fn new(conn: &mut database::Connection) -> Self {
+        let today = chrono::Local::now().date_naive();
+
+        let start = today.week(chrono::Weekday::Sun);
+        Self {
+            week: Self::get_calendar_week(conn, start),
+            start,
+        }
+    }
+
+    fn get_calendar_week(
+        conn: &mut database::Connection,
+        start: chrono::NaiveWeek,
+    ) -> HashMap<chrono::Weekday, RecipeHandle> {
+        use chrono::Datelike as _;
+        use database::schema::calendar::dsl::*;
+        use diesel::BoolExpressionMethods as _;
+
+        calendar
+            .inner_join(database::schema::recipes::table)
+            .select((day, RecipeHandle::as_select()))
+            .filter(day.ge(start.first_day()).and(day.le(start.last_day())))
+            .load(conn)
+            .unwrap()
+            .into_iter()
+            .map(|(d, r): (chrono::NaiveDate, RecipeHandle)| (d.weekday(), r))
+            .collect()
+    }
+
+    fn update(&mut self, conn: &mut database::Connection, ctx: &egui::Context) -> bool {
+        use chrono::Weekday::*;
+
+        let mut open = true;
+        egui::Window::new("Calendar")
+            .open(&mut open)
+            .show(ctx, |ui| {
+                egui::Grid::new("calendar grid").show(ui, |ui| {
+                    ui.label(format!("Week of "));
+                    let mut date = self.start.first_day();
+                    ui.add(egui_extras::DatePickerButton::new(&mut date));
+                    let new_start = date.week(Sun);
+                    if self.start != new_start {
+                        self.start = new_start;
+                        self.week = Self::get_calendar_week(conn, self.start);
+                    }
+                    ui.end_row();
+
+                    for day in [Sun, Mon, Tue, Wed, Thu, Fri, Sat] {
+                        ui.label(day.to_string());
+                        if let Some(recipe) = self.week.get(&day) {
+                            ui.label(recipe.name.clone());
+                        } else {
+                            ui.label("No Recipe");
+                        }
+                        ui.end_row();
+                    }
+                });
+                if ui.button("Next").clicked() {
+                    self.start = self
+                        .start
+                        .first_day()
+                        .checked_add_days(chrono::Days::new(7))
+                        .unwrap()
+                        .week(Sun);
+                    self.week = Self::get_calendar_week(conn, self.start);
+                }
+                if ui.button("Previous").clicked() {
+                    self.start = self
+                        .start
+                        .first_day()
+                        .checked_sub_days(chrono::Days::new(7))
+                        .unwrap()
+                        .week(Sun);
+                    self.week = Self::get_calendar_week(conn, self.start);
+                }
+            });
+
+        !open
+    }
+}
+
 pub struct RecipeManager {
     category_list: CategoryListWindow,
     conn: database::Connection,
@@ -743,6 +830,7 @@ pub struct RecipeManager {
     recipes: HashMap<RecipeId, RecipeWindow>,
     all_ingredients: BTreeMap<String, Ingredient>,
     ingredient_list_window: Option<IngredientListWindow>,
+    calendar_window: Option<CalendarWindow>,
 }
 
 impl RecipeManager {
@@ -764,6 +852,7 @@ impl RecipeManager {
                 .map(|i| (i.name.clone(), i))
                 .collect(),
             ingredient_list_window: None,
+            calendar_window: None,
         }
     }
 
@@ -811,6 +900,9 @@ impl RecipeManager {
                     if ui.button("Ingredients").clicked() && self.ingredient_list_window.is_none() {
                         self.ingredient_list_window = Some(IngredientListWindow::default());
                     }
+                    if ui.button("Calendar").clicked() && self.calendar_window.is_none() {
+                        self.calendar_window = Some(CalendarWindow::new(&mut self.conn));
+                    }
                 });
             });
         });
@@ -831,6 +923,14 @@ impl RecipeManager {
             }
         }
     }
+
+    fn update_calendar_window(&mut self, ctx: &egui::Context) {
+        if let Some(window) = &mut self.calendar_window {
+            if window.update(&mut self.conn, ctx) {
+                self.calendar_window = None;
+            }
+        }
+    }
 }
 
 impl eframe::App for RecipeManager {
@@ -841,5 +941,6 @@ impl eframe::App for RecipeManager {
         self.update_category_list_window(ctx);
         self.update_recipe_list_windows(ctx);
         self.update_recipes(ctx);
+        self.update_calendar_window(ctx);
     }
 }
