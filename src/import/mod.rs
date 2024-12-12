@@ -4,7 +4,7 @@ use crate::database;
 use crate::Result;
 use database::models::{
     Ingredient, IngredientId, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
-    RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeId,
+    RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
 use diesel::prelude::OptionalExtension as _;
 use diesel::ExpressionMethods as _;
@@ -251,6 +251,33 @@ pub fn import_recipes(mut conn: database::Connection, path: impl AsRef<Path>) ->
     Ok(())
 }
 
+fn find_recipes(conn: &mut database::Connection, search_name: &str) -> Vec<RecipeId> {
+    use database::schema::recipes::dsl::*;
+
+    recipes
+        .select(RecipeHandle::as_select())
+        .filter(name.eq(search_name))
+        .load(conn)
+        .unwrap()
+        .into_iter()
+        .map(|r| r.id)
+        .collect()
+}
+
+fn add_calendar_entry(
+    conn: &mut database::Connection,
+    new_day: chrono::NaiveDate,
+    new_recipe_id: RecipeId,
+) {
+    use database::schema::calendar::dsl::*;
+    use diesel::insert_into;
+
+    insert_into(calendar)
+        .values((day.eq(new_day), recipe_id.eq(new_recipe_id)))
+        .execute(conn)
+        .unwrap();
+}
+
 pub struct CalendarImporter {
     recipe_weeks: Vec<plist::RecipeWeek>,
     num_imported: usize,
@@ -279,8 +306,32 @@ impl CalendarImporter {
         self.num_imported as f32 / (self.recipe_weeks.len() + self.num_imported) as f32
     }
 
-    pub fn import_one(&mut self, _conn: &mut database::Connection) -> Result<()> {
+    pub fn import_one(&mut self, conn: &mut database::Connection) -> Result<()> {
         assert!(!self.done());
+
+        let week = self.recipe_weeks.pop().unwrap();
+        for (day, recipe_name) in week.days {
+            if recipe_name == "No Recipe" {
+                continue;
+            }
+
+            let recipes = find_recipes(conn, &recipe_name);
+            if recipes.is_empty() {
+                println!("warning: recipe {recipe_name:?} not found");
+                continue;
+            }
+            if recipes.len() > 1 {
+                println!("warning: multiple recipes named {recipe_name:?} found");
+            }
+            let recipe_id = recipes[0];
+
+            let date_time = week.date.with_timezone(&chrono::Local);
+            let computed_date_time = date_time
+                .checked_add_days(chrono::Days::new(day as u32 as u64))
+                .ok_or_else(|| format!("invalid date {date_time:?}"))?;
+            add_calendar_entry(conn, computed_date_time.date_naive(), recipe_id);
+        }
+        self.num_imported += 1;
 
         Ok(())
     }

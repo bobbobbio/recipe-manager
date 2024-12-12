@@ -441,21 +441,22 @@ pub fn decode_recipes_from_path(path: impl AsRef<Path>) -> crate::Result<Vec<Rec
 }
 
 #[derive(Copy, Clone, Debug, derive_more::Display, strum::EnumIter, Hash, PartialEq, Eq)]
+#[repr(u32)]
 pub enum DayOfWeek {
     #[display("Sunday")]
-    Sunday,
+    Sunday = 0,
     #[display("Monday")]
-    Monday,
+    Monday = 1,
     #[display("Tuesday")]
-    Tuesday,
+    Tuesday = 2,
     #[display("Wednesday")]
-    Wednesday,
+    Wednesday = 3,
     #[display("Thursday")]
-    Thursday,
+    Thursday = 4,
     #[display("Friday")]
-    Friday,
+    Friday = 5,
     #[display("Saturday")]
-    Saturday,
+    Saturday = 6,
 }
 
 impl DayOfWeek {
@@ -466,9 +467,7 @@ impl DayOfWeek {
 
 #[derive(Debug)]
 pub struct RecipeWeek {
-    #[expect(dead_code)]
     pub days: HashMap<DayOfWeek, String>,
-    #[expect(dead_code)]
     pub date: chrono::DateTime<chrono::Utc>,
 }
 
