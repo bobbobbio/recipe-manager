@@ -8,6 +8,7 @@ use diesel::RunQueryDsl as _;
 use diesel::SelectableHelper as _;
 use eframe::egui;
 use std::collections::{BTreeMap, HashMap};
+use std::hash::Hash;
 use std::mem;
 
 use crate::database;
@@ -310,12 +311,79 @@ impl RecipeListWindow {
     }
 }
 
+struct SearchWidget<'a, SearchFn> {
+    buf: &'a mut String,
+    search_fn: SearchFn,
+    pop_up_id: egui::Id,
+}
+
+impl<'a, SearchFn> SearchWidget<'a, SearchFn>
+where
+    SearchFn: FnOnce(&str) -> Vec<String>,
+{
+    fn new(id_source: impl Hash, buf: &'a mut String, search_fn: SearchFn) -> Self {
+        Self {
+            buf,
+            search_fn,
+            pop_up_id: egui::Id::new(id_source),
+        }
+    }
+}
+
+impl<'a, SearchFn> egui::Widget for SearchWidget<'a, SearchFn>
+where
+    SearchFn: FnOnce(&str) -> Vec<String>,
+{
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        let Self {
+            pop_up_id,
+            buf,
+            search_fn,
+        } = self;
+
+        let edit = egui::TextEdit::singleline(buf);
+        let edit_output = edit.show(ui);
+        let mut r = edit_output.response;
+        if r.gained_focus() {
+            ui.memory_mut(|m| m.open_popup(pop_up_id));
+        }
+
+        let mut changed = false;
+        egui::popup_below_widget(
+            ui,
+            pop_up_id,
+            &r,
+            egui::PopupCloseBehavior::CloseOnClick,
+            |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(f32::INFINITY)
+                    .show(ui, |ui| {
+                        for text in search_fn(buf) {
+                            if ui.selectable_label(false, &text).clicked() {
+                                *buf = text;
+                                changed = true;
+                                ui.memory_mut(|m| m.close_popup());
+                            }
+                        }
+                    });
+            },
+        );
+
+        if changed {
+            r.mark_changed();
+        }
+
+        r
+    }
+}
+
 struct IngredientBeingEdited {
     id: IngredientUsageId,
     name: String,
     category: String,
     quantity: String,
     quantity_units: Option<IngredientMeasurement>,
+    cached_ingredient_search: Option<(String, Vec<String>)>,
 }
 
 impl IngredientBeingEdited {
@@ -326,6 +394,7 @@ impl IngredientBeingEdited {
             category: i.category.as_deref().unwrap_or("").into(),
             quantity: u.quantity.to_string(),
             quantity_units: u.quantity_units,
+            cached_ingredient_search: None,
         }
     }
 }
@@ -336,6 +405,7 @@ struct RecipeWindow {
     ingredient_being_edited: Option<IngredientBeingEdited>,
     new_ingredient: String,
     edit_mode: bool,
+    cached_ingredient_search: Option<(String, Vec<String>)>,
 }
 
 impl RecipeWindow {
@@ -357,6 +427,7 @@ impl RecipeWindow {
             ingredient_being_edited: None,
             new_ingredient: String::new(),
             edit_mode: false,
+            cached_ingredient_search: None,
         }
     }
 
@@ -451,6 +522,33 @@ impl RecipeWindow {
             .unwrap();
     }
 
+    fn search_ingredients(
+        conn: &mut database::Connection,
+        cached_ingredient_search: &mut Option<(String, Vec<String>)>,
+        query: &str,
+    ) -> Vec<String> {
+        if let Some((cached_query, cached_result)) = cached_ingredient_search.as_ref() {
+            if cached_query == query {
+                return cached_result.clone();
+            }
+        }
+
+        use database::schema::ingredients::dsl::*;
+        use diesel::expression_methods::TextExpressionMethods as _;
+
+        let result: Vec<_> = ingredients
+            .select(Ingredient::as_select())
+            .filter(name.like(format!("%{query}%")))
+            .load(conn)
+            .unwrap()
+            .into_iter()
+            .map(|i| i.name)
+            .collect();
+
+        *cached_ingredient_search = Some((query.into(), result.clone()));
+        result
+    }
+
     fn update_ingredients(
         &mut self,
         conn: &mut database::Connection,
@@ -469,12 +567,10 @@ impl RecipeWindow {
             for (usage, ingredient) in &self.ingredients {
                 if let Some(e) = &mut self.ingredient_being_edited {
                     if e.id == usage.id {
-                        ui.add(egui_dropdown::DropDownBox::from_iter(
-                            all_ingredients.keys(),
-                            "ingredient",
-                            &mut e.name,
-                            |ui, text| ui.selectable_label(false, text),
-                        ));
+                        ui.add(SearchWidget::new("ingredient", &mut e.name, |query| {
+                            Self::search_ingredients(conn, &mut e.cached_ingredient_search, query)
+                        }));
+
                         if let Some(i) = all_ingredients.get(&e.name) {
                             e.category = i.category.clone().unwrap_or_default();
                         }
@@ -532,12 +628,14 @@ impl RecipeWindow {
         if self.edit_mode {
             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                 ui.label("Add Ingredient:");
-                ui.add(egui_dropdown::DropDownBox::from_iter(
-                    all_ingredients.keys(),
+                ui.add(SearchWidget::new(
                     "ingredient",
                     &mut self.new_ingredient,
-                    |ui, text| ui.selectable_label(false, text),
+                    |query| {
+                        Self::search_ingredients(conn, &mut self.cached_ingredient_search, query)
+                    },
                 ));
+
                 if ui.button("Add").clicked() {
                     if let Some(ingredient) = all_ingredients.get(&self.new_ingredient) {
                         Self::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
