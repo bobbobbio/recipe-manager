@@ -270,7 +270,7 @@ impl RecipeListWindow {
                                 ui.end_row();
 
                                 if shown && !recipe_windows.contains_key(&id) {
-                                    recipe_windows.insert(*id, RecipeWindow::new(conn, *id));
+                                    recipe_windows.insert(*id, RecipeWindow::new(conn, *id, false));
                                 } else if !shown {
                                     recipe_windows.remove(id);
                                 }
@@ -409,7 +409,7 @@ struct RecipeWindow {
 }
 
 impl RecipeWindow {
-    fn new(conn: &mut database::Connection, recipe_id: RecipeId) -> Self {
+    fn new(conn: &mut database::Connection, recipe_id: RecipeId, edit_mode: bool) -> Self {
         use database::schema::recipes::dsl::*;
         let recipe = recipes
             .select(Recipe::as_select())
@@ -426,7 +426,7 @@ impl RecipeWindow {
             ingredients,
             ingredient_being_edited: None,
             new_ingredient: String::new(),
-            edit_mode: false,
+            edit_mode,
             cached_ingredient_search: None,
         }
     }
@@ -647,7 +647,7 @@ impl RecipeWindow {
         }
 
         if refresh_self {
-            *self = Self::new(conn, self.recipe.id);
+            *self = Self::new(conn, self.recipe.id, self.edit_mode);
         }
     }
 
