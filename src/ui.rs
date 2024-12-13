@@ -311,33 +311,42 @@ impl RecipeListWindow {
     }
 }
 
-struct SearchWidget<'a, SearchFn> {
+struct SearchWidget<'a, SearchFn, ValueT> {
     buf: &'a mut String,
+    value: &'a mut Option<ValueT>,
     search_fn: SearchFn,
     pop_up_id: egui::Id,
 }
 
-impl<'a, SearchFn> SearchWidget<'a, SearchFn>
+impl<'a, SearchFn, ValueT> SearchWidget<'a, SearchFn, ValueT>
 where
-    SearchFn: FnOnce(&str) -> Vec<String>,
+    SearchFn: FnOnce(&str) -> Vec<(ValueT, String)>,
 {
-    fn new(id_source: impl Hash, buf: &'a mut String, search_fn: SearchFn) -> Self {
+    fn new(
+        id_source: impl Hash,
+        buf: &'a mut String,
+        value: &'a mut Option<ValueT>,
+        search_fn: SearchFn,
+    ) -> Self {
         Self {
             buf,
+            value,
             search_fn,
             pop_up_id: egui::Id::new(id_source),
         }
     }
 }
 
-impl<'a, SearchFn> egui::Widget for SearchWidget<'a, SearchFn>
+impl<'a, SearchFn, ValueT> egui::Widget for SearchWidget<'a, SearchFn, ValueT>
 where
-    SearchFn: FnOnce(&str) -> Vec<String>,
+    SearchFn: FnOnce(&str) -> Vec<(ValueT, String)>,
+    ValueT: Clone,
 {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let Self {
             pop_up_id,
             buf,
+            value,
             search_fn,
         } = self;
 
@@ -358,12 +367,25 @@ where
                 egui::ScrollArea::vertical()
                     .max_height(f32::INFINITY)
                     .show(ui, |ui| {
-                        for text in search_fn(buf) {
+                        let mut matches_valid = false;
+                        for (text_id, text) in search_fn(buf) {
+                            if buf == &text {
+                                matches_valid = true;
+                                if value.is_none() {
+                                    *value = Some(text_id.clone());
+                                }
+                            }
+
                             if ui.selectable_label(false, &text).clicked() {
+                                *value = Some(text_id);
                                 *buf = text;
                                 changed = true;
                                 ui.memory_mut(|m| m.close_popup());
+                                matches_valid = true;
                             }
+                        }
+                        if !matches_valid {
+                            *value = None;
                         }
                     });
             },
@@ -377,21 +399,26 @@ where
     }
 }
 
+struct CachedQuery<IdT> {
+    query: String,
+    results: Vec<(IdT, String)>,
+}
+
 struct IngredientBeingEdited {
-    id: IngredientUsageId,
-    name: String,
-    category: String,
+    usage_id: IngredientUsageId,
+    new_ingredient_name: String,
+    ingredient: Option<Ingredient>,
     quantity: String,
     quantity_units: Option<IngredientMeasurement>,
-    cached_ingredient_search: Option<(String, Vec<String>)>,
+    cached_ingredient_search: Option<CachedQuery<Ingredient>>,
 }
 
 impl IngredientBeingEdited {
     fn new(i: &Ingredient, u: &IngredientUsage) -> Self {
         Self {
-            id: u.id,
-            name: i.name.clone(),
-            category: i.category.as_deref().unwrap_or("").into(),
+            usage_id: u.id,
+            new_ingredient_name: i.name.clone(),
+            ingredient: Some(i.clone()),
             quantity: u.quantity.to_string(),
             quantity_units: u.quantity_units,
             cached_ingredient_search: None,
@@ -403,9 +430,10 @@ struct RecipeWindow {
     recipe: Recipe,
     ingredients: Vec<(IngredientUsage, Ingredient)>,
     ingredient_being_edited: Option<IngredientBeingEdited>,
-    new_ingredient: String,
+    new_ingredient_name: String,
+    new_ingredient: Option<Ingredient>,
     edit_mode: bool,
-    cached_ingredient_search: Option<(String, Vec<String>)>,
+    cached_ingredient_search: Option<CachedQuery<Ingredient>>,
 }
 
 impl RecipeWindow {
@@ -425,7 +453,8 @@ impl RecipeWindow {
             recipe,
             ingredients,
             ingredient_being_edited: None,
-            new_ingredient: String::new(),
+            new_ingredient_name: String::new(),
+            new_ingredient: None,
             edit_mode,
             cached_ingredient_search: None,
         }
@@ -524,12 +553,12 @@ impl RecipeWindow {
 
     fn search_ingredients(
         conn: &mut database::Connection,
-        cached_ingredient_search: &mut Option<(String, Vec<String>)>,
+        cached_ingredient_search: &mut Option<CachedQuery<Ingredient>>,
         query: &str,
-    ) -> Vec<String> {
-        if let Some((cached_query, cached_result)) = cached_ingredient_search.as_ref() {
-            if cached_query == query {
-                return cached_result.clone();
+    ) -> Vec<(Ingredient, String)> {
+        if let Some(cached) = cached_ingredient_search.as_ref() {
+            if cached.query == query {
+                return cached.results.clone();
             }
         }
 
@@ -542,19 +571,17 @@ impl RecipeWindow {
             .load(conn)
             .unwrap()
             .into_iter()
-            .map(|i| i.name)
+            .map(|i| (i.clone(), i.name))
             .collect();
 
-        *cached_ingredient_search = Some((query.into(), result.clone()));
+        *cached_ingredient_search = Some(CachedQuery {
+            query: query.into(),
+            results: result.clone(),
+        });
         result
     }
 
-    fn update_ingredients(
-        &mut self,
-        conn: &mut database::Connection,
-        all_ingredients: &BTreeMap<String, Ingredient>,
-        ui: &mut egui::Ui,
-    ) {
+    fn update_ingredients(&mut self, conn: &mut database::Connection, ui: &mut egui::Ui) {
         let mut refresh_self = false;
         let name = &self.recipe.name;
         egui::Grid::new(format!("{name} ingredients")).show(ui, |ui| {
@@ -566,15 +593,29 @@ impl RecipeWindow {
 
             for (usage, ingredient) in &self.ingredients {
                 if let Some(e) = &mut self.ingredient_being_edited {
-                    if e.id == usage.id {
-                        ui.add(SearchWidget::new("ingredient", &mut e.name, |query| {
-                            Self::search_ingredients(conn, &mut e.cached_ingredient_search, query)
-                        }));
+                    if e.usage_id == usage.id {
+                        ui.add(SearchWidget::new(
+                            "ingredient",
+                            &mut e.new_ingredient_name,
+                            &mut e.ingredient,
+                            |query| {
+                                Self::search_ingredients(
+                                    conn,
+                                    &mut e.cached_ingredient_search,
+                                    query,
+                                )
+                            },
+                        ));
 
-                        if let Some(i) = all_ingredients.get(&e.name) {
-                            e.category = i.category.clone().unwrap_or_default();
+                        if let Some(Ingredient {
+                            category: Some(category),
+                            ..
+                        }) = &e.ingredient
+                        {
+                            ui.label(category.as_str());
+                        } else {
+                            ui.label("");
                         }
-                        ui.label(&e.category);
                         ui.add(egui::TextEdit::singleline(&mut e.quantity));
                         egui::ComboBox::from_id_salt("recipe ingredient quantity units")
                             .selected_text(
@@ -586,11 +627,11 @@ impl RecipeWindow {
                                 }
                                 ui.selectable_value(&mut e.quantity_units, None, "");
                             });
-                        if ui.button("Save").clicked() && all_ingredients.contains_key(&e.name) {
+                        if ui.button("Save").clicked() && e.ingredient.is_some() {
                             Self::edit_recipe_ingredient(
                                 conn,
-                                e.id,
-                                all_ingredients.get(&e.name).unwrap(),
+                                e.usage_id,
+                                e.ingredient.as_ref().unwrap(),
                                 e.quantity.parse().unwrap_or(0.0),
                                 e.quantity_units,
                             );
@@ -630,6 +671,7 @@ impl RecipeWindow {
                 ui.label("Add Ingredient:");
                 ui.add(SearchWidget::new(
                     "ingredient",
+                    &mut self.new_ingredient_name,
                     &mut self.new_ingredient,
                     |query| {
                         Self::search_ingredients(conn, &mut self.cached_ingredient_search, query)
@@ -637,9 +679,10 @@ impl RecipeWindow {
                 ));
 
                 if ui.button("Add").clicked() {
-                    if let Some(ingredient) = all_ingredients.get(&self.new_ingredient) {
+                    if let Some(ingredient) = &self.new_ingredient {
                         Self::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
-                        self.new_ingredient = "".into();
+                        self.new_ingredient_name = "".into();
+                        self.new_ingredient = None;
                         refresh_self = true;
                     }
                 }
@@ -651,18 +694,13 @@ impl RecipeWindow {
         }
     }
 
-    fn update(
-        &mut self,
-        ctx: &egui::Context,
-        conn: &mut database::Connection,
-        all_ingredients: &BTreeMap<String, Ingredient>,
-    ) -> bool {
+    fn update(&mut self, ctx: &egui::Context, conn: &mut database::Connection) -> bool {
         let mut open = true;
         egui::Window::new(self.recipe.name.clone())
             .id(egui::Id::new(("recipe", self.recipe.id)))
             .open(&mut open)
             .show(ctx, |ui| {
-                self.update_ingredients(conn, all_ingredients, ui);
+                self.update_ingredients(conn, ui);
                 egui::Grid::new("Recipe Information")
                     .num_columns(2)
                     .show(ui, |ui| {
@@ -820,16 +858,26 @@ impl ImportWindow {
     }
 }
 
-#[derive(Default)]
-struct IngredientListWindow;
+struct IngredientListWindow {
+    all_ingredients: BTreeMap<String, Ingredient>,
+}
 
 impl IngredientListWindow {
-    fn update(
-        &mut self,
-        _conn: &mut database::Connection,
-        all_ingredients: &mut BTreeMap<String, Ingredient>,
-        ctx: &egui::Context,
-    ) -> bool {
+    fn new(conn: &mut database::Connection) -> Self {
+        use database::schema::ingredients::dsl::*;
+        let all_ingredients = ingredients
+            .select(Ingredient::as_select())
+            .load(conn)
+            .unwrap();
+        Self {
+            all_ingredients: all_ingredients
+                .into_iter()
+                .map(|i| (i.name.clone(), i))
+                .collect(),
+        }
+    }
+
+    fn update(&mut self, _conn: &mut database::Connection, ctx: &egui::Context) -> bool {
         let mut open = true;
         egui::Window::new("Ingredients")
             .open(&mut open)
@@ -840,7 +888,7 @@ impl IngredientListWindow {
                         ui.label("Category");
                         ui.end_row();
 
-                        for ingredient in all_ingredients.values() {
+                        for ingredient in self.all_ingredients.values() {
                             ui.label(&ingredient.name);
                             ui.label(ingredient.category.as_deref().unwrap_or(""));
                             ui.end_row();
@@ -945,29 +993,18 @@ pub struct RecipeManager {
     import_window: Option<ImportWindow>,
     recipe_lists: HashMap<RecipeCategoryId, RecipeListWindow>,
     recipes: HashMap<RecipeId, RecipeWindow>,
-    all_ingredients: BTreeMap<String, Ingredient>,
     ingredient_list_window: Option<IngredientListWindow>,
     calendar_window: Option<CalendarWindow>,
 }
 
 impl RecipeManager {
     pub fn new(mut conn: database::Connection) -> Self {
-        use database::schema::ingredients::dsl::*;
-        let all_ingredients = ingredients
-            .select(Ingredient::as_select())
-            .load(&mut conn)
-            .unwrap();
-
         Self {
             category_list: CategoryListWindow::new(&mut conn),
             conn,
             import_window: None,
             recipe_lists: Default::default(),
             recipes: Default::default(),
-            all_ingredients: all_ingredients
-                .into_iter()
-                .map(|i| (i.name.clone(), i))
-                .collect(),
             ingredient_list_window: None,
             calendar_window: None,
         }
@@ -991,7 +1028,7 @@ impl RecipeManager {
     fn update_recipes(&mut self, ctx: &egui::Context) {
         for (id, mut recipe) in mem::take(&mut self.recipes) {
             let old_name = recipe.recipe.name.clone();
-            let closed = recipe.update(ctx, &mut self.conn, &self.all_ingredients);
+            let closed = recipe.update(ctx, &mut self.conn);
 
             if old_name != recipe.recipe.name {
                 if let Some(list) = self.recipe_lists.get_mut(&recipe.recipe.category) {
@@ -1015,7 +1052,8 @@ impl RecipeManager {
                         self.import_window = Some(ImportWindow::default());
                     }
                     if ui.button("Ingredients").clicked() && self.ingredient_list_window.is_none() {
-                        self.ingredient_list_window = Some(IngredientListWindow::default());
+                        self.ingredient_list_window =
+                            Some(IngredientListWindow::new(&mut self.conn));
                     }
                     if ui.button("Calendar").clicked() && self.calendar_window.is_none() {
                         self.calendar_window = Some(CalendarWindow::new(&mut self.conn));
@@ -1035,7 +1073,7 @@ impl RecipeManager {
 
     fn update_ingredient_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.ingredient_list_window {
-            if window.update(&mut self.conn, &mut self.all_ingredients, ctx) {
+            if window.update(&mut self.conn, ctx) {
                 self.ingredient_list_window = None;
             }
         }
