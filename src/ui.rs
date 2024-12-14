@@ -1,5 +1,7 @@
 // Copyright 2023 Remi Bernotavicius
 
+mod query;
+
 use crate::import;
 use diesel::BelongingToDsl as _;
 use diesel::ExpressionMethods as _;
@@ -13,8 +15,8 @@ use std::mem;
 
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientId, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
-    RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
+    Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe, RecipeCategory,
+    RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
 
 struct CategoryBeingEdited {
@@ -46,51 +48,6 @@ impl CategoryListWindow {
         }
     }
 
-    fn add_category(conn: &mut database::Connection, new_category_name: &str) {
-        use database::schema::recipe_categories::dsl::*;
-        use diesel::insert_into;
-
-        insert_into(recipe_categories)
-            .values(name.eq(new_category_name))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategoryId) {
-        let count: i64 = {
-            use database::schema::recipes::dsl::*;
-
-            recipes
-                .filter(category.eq(delete_id))
-                .count()
-                .get_result(conn)
-                .unwrap()
-        };
-
-        if count == 0 {
-            use database::schema::recipe_categories::dsl::*;
-            use diesel::delete;
-
-            delete(recipe_categories.filter(id.eq(delete_id)))
-                .execute(conn)
-                .unwrap();
-        }
-    }
-
-    fn edit_category(
-        conn: &mut database::Connection,
-        id_to_edit: RecipeCategoryId,
-        new_name: &str,
-    ) {
-        use database::schema::recipe_categories::dsl::*;
-        use diesel::update;
-
-        update(recipe_categories.filter(id.eq(id_to_edit)))
-            .set(name.eq(new_name))
-            .execute(conn)
-            .unwrap();
-    }
-
     fn update(
         &mut self,
         ctx: &egui::Context,
@@ -115,7 +72,7 @@ impl CategoryListWindow {
                                 if e.id == *cat_id {
                                     ui.add(egui::TextEdit::singleline(&mut e.name));
                                     if ui.button("Save").clicked() {
-                                        Self::edit_category(conn, e.id, &e.name);
+                                        query::edit_category(conn, e.id, &e.name);
                                         if let Some(w) = recipe_list_windows.get_mut(&e.id) {
                                             w.recipe_category.name = e.name.clone();
                                         }
@@ -168,12 +125,12 @@ impl CategoryListWindow {
         });
 
         if add_category {
-            Self::add_category(conn, &self.new_category_name);
+            query::add_category(conn, &self.new_category_name);
             self.new_category_name = "".into();
             refresh_self = true;
         }
         for cat in categories_to_delete {
-            Self::delete_category(conn, cat);
+            query::delete_category(conn, cat);
             refresh_self = true;
             recipe_list_windows.remove(&cat);
         }
@@ -207,30 +164,6 @@ impl RecipeListWindow {
             edit_mode: false,
             new_recipe_name: String::new(),
         }
-    }
-
-    fn delete_recipe(conn: &mut database::Connection, delete_id: RecipeId) {
-        use database::schema::recipes::dsl::*;
-        use diesel::delete;
-
-        delete(recipes.filter(id.eq(delete_id)))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn add_recipe(conn: &mut database::Connection, new_name: &str, new_category: RecipeCategoryId) {
-        use database::schema::recipes::dsl::*;
-        use diesel::insert_into;
-
-        insert_into(recipes)
-            .values((
-                name.eq(new_name),
-                description.eq(""),
-                duration.eq(RecipeDuration::Short),
-                category.eq(new_category),
-            ))
-            .execute(conn)
-            .unwrap();
     }
 
     fn update(
@@ -292,13 +225,13 @@ impl RecipeListWindow {
 
         let mut refresh_self = false;
         for recipe in recipes_to_delete {
-            Self::delete_recipe(conn, recipe);
+            query::delete_recipe(conn, recipe);
             refresh_self = true;
             recipe_windows.remove(&recipe);
         }
 
         if add_recipe {
-            Self::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
+            query::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
             self.new_recipe_name = "".into();
             refresh_self = true;
         }
@@ -399,18 +332,13 @@ where
     }
 }
 
-struct CachedQuery<IdT> {
-    query: String,
-    results: Vec<(IdT, String)>,
-}
-
 struct IngredientBeingEdited {
     usage_id: IngredientUsageId,
     new_ingredient_name: String,
     ingredient: Option<Ingredient>,
     quantity: String,
     quantity_units: Option<IngredientMeasurement>,
-    cached_ingredient_search: Option<CachedQuery<Ingredient>>,
+    cached_ingredient_search: Option<query::CachedQuery<Ingredient>>,
 }
 
 impl IngredientBeingEdited {
@@ -433,7 +361,7 @@ struct RecipeWindow {
     new_ingredient_name: String,
     new_ingredient: Option<Ingredient>,
     edit_mode: bool,
-    cached_ingredient_search: Option<CachedQuery<Ingredient>>,
+    cached_ingredient_search: Option<query::CachedQuery<Ingredient>>,
     week: RecipeWeek,
 }
 
@@ -462,127 +390,6 @@ impl RecipeWindow {
         }
     }
 
-    fn delete_recipe_ingredient(conn: &mut database::Connection, usage_id: IngredientUsageId) {
-        use database::schema::ingredient_usages::dsl::*;
-        use diesel::delete;
-
-        delete(ingredient_usages)
-            .filter(id.eq(usage_id))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn add_recipe_ingredient(
-        conn: &mut database::Connection,
-        new_recipe_id: RecipeId,
-        new_ingredient_id: IngredientId,
-        new_quantity: f32,
-    ) {
-        use database::schema::ingredient_usages::dsl::*;
-        use diesel::insert_into;
-
-        insert_into(ingredient_usages)
-            .values((
-                recipe_id.eq(new_recipe_id),
-                ingredient_id.eq(new_ingredient_id),
-                quantity.eq(new_quantity),
-            ))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn edit_recipe_ingredient(
-        conn: &mut database::Connection,
-        usage_id: IngredientUsageId,
-        new_ingredient: &Ingredient,
-        new_quantity: f32,
-        new_quantity_units: Option<IngredientMeasurement>,
-    ) {
-        use database::schema::ingredient_usages::dsl::*;
-        use diesel::update;
-
-        update(ingredient_usages)
-            .filter(id.eq(usage_id))
-            .set((
-                ingredient_id.eq(new_ingredient.id),
-                quantity.eq(new_quantity),
-                quantity_units.eq(new_quantity_units),
-            ))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn edit_recipe_duration(
-        conn: &mut database::Connection,
-        recipe_id: RecipeId,
-        new_duration: RecipeDuration,
-    ) {
-        use database::schema::recipes::dsl::*;
-        use diesel::update;
-
-        update(recipes)
-            .filter(id.eq(recipe_id))
-            .set(duration.eq(new_duration))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn edit_recipe_description(
-        conn: &mut database::Connection,
-        recipe_id: RecipeId,
-        new_description: &str,
-    ) {
-        use database::schema::recipes::dsl::*;
-        use diesel::update;
-
-        update(recipes)
-            .filter(id.eq(recipe_id))
-            .set(description.eq(new_description))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn edit_recipe_name(conn: &mut database::Connection, recipe_id: RecipeId, new_name: &str) {
-        use database::schema::recipes::dsl::*;
-        use diesel::update;
-
-        update(recipes)
-            .filter(id.eq(recipe_id))
-            .set(name.eq(new_name))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn search_ingredients(
-        conn: &mut database::Connection,
-        cached_ingredient_search: &mut Option<CachedQuery<Ingredient>>,
-        query: &str,
-    ) -> Vec<(Ingredient, String)> {
-        if let Some(cached) = cached_ingredient_search.as_ref() {
-            if cached.query == query {
-                return cached.results.clone();
-            }
-        }
-
-        use database::schema::ingredients::dsl::*;
-        use diesel::expression_methods::TextExpressionMethods as _;
-
-        let result: Vec<_> = ingredients
-            .select(Ingredient::as_select())
-            .filter(name.like(format!("%{query}%")))
-            .load(conn)
-            .unwrap()
-            .into_iter()
-            .map(|i| (i.clone(), i.name))
-            .collect();
-
-        *cached_ingredient_search = Some(CachedQuery {
-            query: query.into(),
-            results: result.clone(),
-        });
-        result
-    }
-
     fn update_ingredients(&mut self, conn: &mut database::Connection, ui: &mut egui::Ui) {
         let mut refresh_self = false;
         let name = &self.recipe.name;
@@ -601,7 +408,7 @@ impl RecipeWindow {
                             &mut e.new_ingredient_name,
                             &mut e.ingredient,
                             |query| {
-                                Self::search_ingredients(
+                                query::search_ingredients(
                                     conn,
                                     &mut e.cached_ingredient_search,
                                     query,
@@ -630,7 +437,7 @@ impl RecipeWindow {
                                 ui.selectable_value(&mut e.quantity_units, None, "");
                             });
                         if ui.button("Save").clicked() && e.ingredient.is_some() {
-                            Self::edit_recipe_ingredient(
+                            query::edit_recipe_ingredient(
                                 conn,
                                 e.usage_id,
                                 e.ingredient.as_ref().unwrap(),
@@ -660,7 +467,7 @@ impl RecipeWindow {
                             Some(IngredientBeingEdited::new(ingredient, usage));
                     }
                     if ui.button("Delete").clicked() {
-                        Self::delete_recipe_ingredient(conn, usage.id);
+                        query::delete_recipe_ingredient(conn, usage.id);
                         refresh_self = true;
                     }
                 }
@@ -676,13 +483,13 @@ impl RecipeWindow {
                     &mut self.new_ingredient_name,
                     &mut self.new_ingredient,
                     |query| {
-                        Self::search_ingredients(conn, &mut self.cached_ingredient_search, query)
+                        query::search_ingredients(conn, &mut self.cached_ingredient_search, query)
                     },
                 ));
 
                 if ui.button("Add").clicked() {
                     if let Some(ingredient) = &self.new_ingredient {
-                        Self::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
+                        query::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
                         self.new_ingredient_name = "".into();
                         self.new_ingredient = None;
                         refresh_self = true;
@@ -711,7 +518,7 @@ impl RecipeWindow {
                             let mut name = self.recipe.name.clone();
                             ui.add(egui::TextEdit::singleline(&mut name));
                             if name != self.recipe.name {
-                                Self::edit_recipe_name(conn, self.recipe.id, &name);
+                                query::edit_recipe_name(conn, self.recipe.id, &name);
                                 self.recipe.name = name.clone();
                             }
                             ui.end_row();
@@ -727,7 +534,7 @@ impl RecipeWindow {
                                     }
                                 });
                             if selected != self.recipe.duration {
-                                Self::edit_recipe_duration(conn, self.recipe.id, selected);
+                                query::edit_recipe_duration(conn, self.recipe.id, selected);
                                 self.recipe.duration = selected;
                             }
                         } else {
@@ -740,7 +547,7 @@ impl RecipeWindow {
                             let mut description = self.recipe.description.clone();
                             ui.add(egui::TextEdit::multiline(&mut description));
                             if description != self.recipe.description {
-                                Self::edit_recipe_description(conn, self.recipe.id, &description);
+                                query::edit_recipe_description(conn, self.recipe.id, &description);
                                 self.recipe.description = description;
                             }
                         } else {
@@ -934,54 +741,9 @@ struct RecipeWeek {
 impl RecipeWeek {
     fn new(conn: &mut database::Connection, week: chrono::NaiveWeek) -> Self {
         Self {
-            week: Self::get_calendar_week(conn, week),
+            week: query::get_calendar_week(conn, week),
             start: week,
         }
-    }
-
-    fn get_calendar_week(
-        conn: &mut database::Connection,
-        start: chrono::NaiveWeek,
-    ) -> HashMap<chrono::Weekday, RecipeHandle> {
-        use chrono::Datelike as _;
-        use database::schema::calendar::dsl::*;
-        use diesel::BoolExpressionMethods as _;
-
-        calendar
-            .inner_join(database::schema::recipes::table)
-            .select((day, RecipeHandle::as_select()))
-            .filter(day.ge(start.first_day()).and(day.le(start.last_day())))
-            .load(conn)
-            .unwrap()
-            .into_iter()
-            .map(|(d, r): (chrono::NaiveDate, RecipeHandle)| (d.weekday(), r))
-            .collect()
-    }
-
-    fn delete_calendar_entry(conn: &mut database::Connection, delete_day: chrono::NaiveDate) {
-        use database::schema::calendar::dsl::*;
-        use diesel::delete;
-
-        delete(calendar.filter(day.eq(delete_day)))
-            .execute(conn)
-            .unwrap();
-    }
-
-    fn insert_or_update_calendar_entry(
-        conn: &mut database::Connection,
-        edit_date: chrono::NaiveDate,
-        edit_recipe_id: RecipeId,
-    ) {
-        use database::schema::calendar::dsl::*;
-        use diesel::insert_into;
-
-        insert_into(calendar)
-            .values((day.eq(edit_date), recipe_id.eq(edit_recipe_id)))
-            .on_conflict(day)
-            .do_update()
-            .set(recipe_id.eq(edit_recipe_id))
-            .execute(conn)
-            .unwrap();
     }
 
     fn pick_date(
@@ -996,7 +758,7 @@ impl RecipeWeek {
         let new_start = date.week(Sun);
         if self.start != new_start {
             self.start = new_start;
-            self.week = Self::get_calendar_week(conn, self.start);
+            self.week = query::get_calendar_week(conn, self.start);
         }
     }
 
@@ -1018,7 +780,7 @@ impl RecipeWeek {
             .checked_add_days(chrono::Days::new(7))
             .unwrap()
             .week(Sun);
-        self.week = Self::get_calendar_week(conn, self.start);
+        self.week = query::get_calendar_week(conn, self.start);
     }
 
     fn previous(&mut self, conn: &mut database::Connection) {
@@ -1030,7 +792,7 @@ impl RecipeWeek {
             .checked_sub_days(chrono::Days::new(7))
             .unwrap()
             .week(Sun);
-        self.week = Self::get_calendar_week(conn, self.start);
+        self.week = query::get_calendar_week(conn, self.start);
     }
 
     fn date_for_day(&self, day: chrono::Weekday) -> chrono::NaiveDate {
@@ -1047,12 +809,12 @@ impl RecipeWeek {
     }
 
     fn clear_day(&mut self, conn: &mut database::Connection, day: chrono::Weekday) {
-        Self::delete_calendar_entry(conn, self.date_for_day(day));
+        query::delete_calendar_entry(conn, self.date_for_day(day));
         self.week.remove(&day);
     }
 
     fn schedule(&mut self, conn: &mut database::Connection, day: chrono::Weekday, id: RecipeId) {
-        Self::insert_or_update_calendar_entry(conn, self.date_for_day(day), id);
+        query::insert_or_update_calendar_entry(conn, self.date_for_day(day), id);
         *self = Self::new(conn, self.start);
     }
 }
@@ -1061,7 +823,7 @@ impl RecipeWeek {
 struct RecipeBeingSelected {
     name: String,
     recipe_id: Option<RecipeId>,
-    cached_recipe_search: Option<CachedQuery<RecipeId>>,
+    cached_recipe_search: Option<query::CachedQuery<RecipeId>>,
 }
 
 struct CalendarWindow {
@@ -1077,36 +839,6 @@ impl CalendarWindow {
             edit_mode: false,
             recipes_being_selected: HashMap::new(),
         }
-    }
-
-    fn search_recipes(
-        conn: &mut database::Connection,
-        cached_recipe_search: &mut Option<CachedQuery<RecipeId>>,
-        query: &str,
-    ) -> Vec<(RecipeId, String)> {
-        if let Some(cached) = cached_recipe_search.as_ref() {
-            if cached.query == query {
-                return cached.results.clone();
-            }
-        }
-
-        use database::schema::recipes::dsl::*;
-        use diesel::expression_methods::TextExpressionMethods as _;
-
-        let result: Vec<_> = recipes
-            .select(RecipeHandle::as_select())
-            .filter(name.like(format!("%{query}%")))
-            .load(conn)
-            .unwrap()
-            .into_iter()
-            .map(|i| (i.id, i.name))
-            .collect();
-
-        *cached_recipe_search = Some(CachedQuery {
-            query: query.into(),
-            results: result.clone(),
-        });
-        result
     }
 
     fn update(&mut self, conn: &mut database::Connection, ctx: &egui::Context) -> bool {
@@ -1140,7 +872,7 @@ impl CalendarWindow {
                                         &mut e.name,
                                         &mut e.recipe_id,
                                         |query| {
-                                            Self::search_recipes(
+                                            query::search_recipes(
                                                 conn,
                                                 &mut e.cached_recipe_search,
                                                 query,
