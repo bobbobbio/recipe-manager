@@ -583,23 +583,6 @@ impl RecipeWindow {
         result
     }
 
-    fn schedule(
-        conn: &mut database::Connection,
-        edit_date: chrono::NaiveDate,
-        edit_recipe_id: RecipeId,
-    ) {
-        use database::schema::calendar::dsl::*;
-        use diesel::insert_into;
-
-        insert_into(calendar)
-            .values((day.eq(edit_date), recipe_id.eq(edit_recipe_id)))
-            .on_conflict(day)
-            .do_update()
-            .set(recipe_id.eq(edit_recipe_id))
-            .execute(conn)
-            .unwrap();
-    }
-
     fn update_ingredients(&mut self, conn: &mut database::Connection, ui: &mut egui::Ui) {
         let mut refresh_self = false;
         let name = &self.recipe.name;
@@ -614,7 +597,7 @@ impl RecipeWindow {
                 if let Some(e) = &mut self.ingredient_being_edited {
                     if e.usage_id == usage.id {
                         ui.add(SearchWidget::new(
-                            "ingredient",
+                            e.usage_id,
                             &mut e.new_ingredient_name,
                             &mut e.ingredient,
                             |query| {
@@ -772,18 +755,13 @@ impl RecipeWindow {
                     });
 
                     ui.menu_button("Schedule", |ui| {
-                        let mut scheduled = false;
                         for (day, recipe) in self.week.recipes() {
                             let recipe =
                                 recipe.map(|r| r.name.clone()).unwrap_or("No Recipe".into());
                             if ui.button(format!("{day}: {recipe}")).clicked() {
-                                Self::schedule(conn, self.week.date_for_day(day), self.recipe.id);
+                                self.week.schedule(conn, day, self.recipe.id);
                                 ui.close_menu();
-                                scheduled = true;
                             }
-                        }
-                        if scheduled {
-                            self.week = RecipeWeek::new(conn, self.week.start);
                         }
                     });
                 });
@@ -986,6 +964,23 @@ impl RecipeWeek {
             .unwrap();
     }
 
+    fn insert_or_update_calendar_entry(
+        conn: &mut database::Connection,
+        edit_date: chrono::NaiveDate,
+        edit_recipe_id: RecipeId,
+    ) {
+        use database::schema::calendar::dsl::*;
+        use diesel::insert_into;
+
+        insert_into(calendar)
+            .values((day.eq(edit_date), recipe_id.eq(edit_recipe_id)))
+            .on_conflict(day)
+            .do_update()
+            .set(recipe_id.eq(edit_recipe_id))
+            .execute(conn)
+            .unwrap();
+    }
+
     fn pick_date(
         &mut self,
         conn: &mut database::Connection,
@@ -1052,11 +1047,24 @@ impl RecipeWeek {
         Self::delete_calendar_entry(conn, self.date_for_day(day));
         self.week.remove(&day);
     }
+
+    fn schedule(&mut self, conn: &mut database::Connection, day: chrono::Weekday, id: RecipeId) {
+        Self::insert_or_update_calendar_entry(conn, self.date_for_day(day), id);
+        *self = Self::new(conn, self.start);
+    }
+}
+
+#[derive(Default)]
+struct RecipeBeingSelected {
+    name: String,
+    recipe_id: Option<RecipeId>,
+    cached_recipe_search: Option<CachedQuery<RecipeId>>,
 }
 
 struct CalendarWindow {
     week: RecipeWeek,
     edit_mode: bool,
+    recipes_being_selected: HashMap<chrono::Weekday, RecipeBeingSelected>,
 }
 
 impl CalendarWindow {
@@ -1064,7 +1072,38 @@ impl CalendarWindow {
         Self {
             week: RecipeWeek::new(conn, this_week()),
             edit_mode: false,
+            recipes_being_selected: HashMap::new(),
         }
+    }
+
+    fn search_recipes(
+        conn: &mut database::Connection,
+        cached_recipe_search: &mut Option<CachedQuery<RecipeId>>,
+        query: &str,
+    ) -> Vec<(RecipeId, String)> {
+        if let Some(cached) = cached_recipe_search.as_ref() {
+            if cached.query == query {
+                return cached.results.clone();
+            }
+        }
+
+        use database::schema::recipes::dsl::*;
+        use diesel::expression_methods::TextExpressionMethods as _;
+
+        let result: Vec<_> = recipes
+            .select(RecipeHandle::as_select())
+            .filter(name.like(format!("%{query}%")))
+            .load(conn)
+            .unwrap()
+            .into_iter()
+            .map(|i| (i.id, i.name))
+            .collect();
+
+        *cached_recipe_search = Some(CachedQuery {
+            query: query.into(),
+            results: result.clone(),
+        });
+        result
     }
 
     fn update(&mut self, conn: &mut database::Connection, ctx: &egui::Context) -> bool {
@@ -1089,6 +1128,25 @@ impl CalendarWindow {
                             }
                         } else {
                             ui.label("No Recipe");
+                            if self.edit_mode {
+                                let e = self.recipes_being_selected.entry(day).or_default();
+                                ui.add(SearchWidget::new(
+                                    format!("recipe for {day}"),
+                                    &mut e.name,
+                                    &mut e.recipe_id,
+                                    |query| {
+                                        Self::search_recipes(
+                                            conn,
+                                            &mut e.cached_recipe_search,
+                                            query,
+                                        )
+                                    },
+                                ));
+                                if ui.button("Select").clicked() && e.recipe_id.is_some() {
+                                    self.week.schedule(conn, day, e.recipe_id.unwrap());
+                                    self.edit_mode = false;
+                                }
+                            }
                         }
                         ui.end_row();
                     }
@@ -1097,9 +1155,11 @@ impl CalendarWindow {
                     ui.toggle_value(&mut self.edit_mode, "Edit");
                     if ui.button("Next").clicked() {
                         self.week.advance(conn);
+                        self.recipes_being_selected.clear();
                     }
                     if ui.button("Previous").clicked() {
                         self.week.previous(conn);
+                        self.recipes_being_selected.clear();
                     }
                 });
             });
