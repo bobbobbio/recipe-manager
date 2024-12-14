@@ -56,12 +56,12 @@ impl CategoryListWindow {
             .unwrap();
     }
 
-    fn delete_category(conn: &mut database::Connection, id_to_delete: RecipeCategoryId) {
+    fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategoryId) {
         let count: i64 = {
             use database::schema::recipes::dsl::*;
 
             recipes
-                .filter(category.eq(id_to_delete))
+                .filter(category.eq(delete_id))
                 .count()
                 .get_result(conn)
                 .unwrap()
@@ -71,7 +71,7 @@ impl CategoryListWindow {
             use database::schema::recipe_categories::dsl::*;
             use diesel::delete;
 
-            delete(recipe_categories.filter(id.eq(id_to_delete)))
+            delete(recipe_categories.filter(id.eq(delete_id)))
                 .execute(conn)
                 .unwrap();
         }
@@ -209,11 +209,11 @@ impl RecipeListWindow {
         }
     }
 
-    fn delete_recipe(conn: &mut database::Connection, id_to_delete: RecipeId) {
+    fn delete_recipe(conn: &mut database::Connection, delete_id: RecipeId) {
         use database::schema::recipes::dsl::*;
         use diesel::delete;
 
-        delete(recipes.filter(id.eq(id_to_delete)))
+        delete(recipes.filter(id.eq(delete_id)))
             .execute(conn)
             .unwrap();
     }
@@ -591,7 +591,6 @@ impl RecipeWindow {
         use database::schema::calendar::dsl::*;
         use diesel::insert_into;
 
-        println!("update calendar, {edit_date} = {edit_recipe_id:?}");
         insert_into(calendar)
             .values((day.eq(edit_date), recipe_id.eq(edit_recipe_id)))
             .on_conflict(day)
@@ -775,6 +774,8 @@ impl RecipeWindow {
                     ui.menu_button("Schedule", |ui| {
                         let mut scheduled = false;
                         for (day, recipe) in self.week.recipes() {
+                            let recipe =
+                                recipe.map(|r| r.name.clone()).unwrap_or("No Recipe".into());
                             if ui.button(format!("{day}: {recipe}")).clicked() {
                                 Self::schedule(conn, self.week.date_for_day(day), self.recipe.id);
                                 ui.close_menu();
@@ -976,6 +977,15 @@ impl RecipeWeek {
             .collect()
     }
 
+    fn delete_calendar_entry(conn: &mut database::Connection, delete_day: chrono::NaiveDate) {
+        use database::schema::calendar::dsl::*;
+        use diesel::delete;
+
+        delete(calendar.filter(day.eq(delete_day)))
+            .execute(conn)
+            .unwrap();
+    }
+
     fn pick_date(
         &mut self,
         conn: &mut database::Connection,
@@ -992,18 +1002,13 @@ impl RecipeWeek {
         }
     }
 
-    fn recipes(&self) -> impl Iterator<Item = (chrono::Weekday, String)> + '_ {
+    fn recipes(&self) -> Vec<(chrono::Weekday, Option<RecipeHandle>)> {
         use chrono::Weekday::*;
 
-        [Sun, Mon, Tue, Wed, Thu, Fri, Sat].into_iter().map(|day| {
-            (
-                day,
-                self.week
-                    .get(&day)
-                    .map(|r| r.name.clone())
-                    .unwrap_or("No Recipe".into()),
-            )
-        })
+        [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
+            .into_iter()
+            .map(|day| (day, self.week.get(&day).cloned()))
+            .collect()
     }
 
     fn advance(&mut self, conn: &mut database::Connection) {
@@ -1042,16 +1047,23 @@ impl RecipeWeek {
             .checked_add_days(chrono::Days::new(day_number as u64))
             .unwrap()
     }
+
+    fn clear_day(&mut self, conn: &mut database::Connection, day: chrono::Weekday) {
+        Self::delete_calendar_entry(conn, self.date_for_day(day));
+        self.week.remove(&day);
+    }
 }
 
 struct CalendarWindow {
     week: RecipeWeek,
+    edit_mode: bool,
 }
 
 impl CalendarWindow {
     fn new(conn: &mut database::Connection) -> Self {
         Self {
             week: RecipeWeek::new(conn, this_week()),
+            edit_mode: false,
         }
     }
 
@@ -1069,16 +1081,27 @@ impl CalendarWindow {
 
                     for (day, recipe) in self.week.recipes() {
                         ui.label(day.to_string());
-                        ui.label(recipe);
+                        if let Some(recipe) = recipe {
+                            ui.label(recipe.name.clone());
+                            if self.edit_mode && ui.button("Clear").clicked() {
+                                self.week.clear_day(conn, day);
+                                self.edit_mode = false;
+                            }
+                        } else {
+                            ui.label("No Recipe");
+                        }
                         ui.end_row();
                     }
                 });
-                if ui.button("Next").clicked() {
-                    self.week.advance(conn);
-                }
-                if ui.button("Previous").clicked() {
-                    self.week.previous(conn);
-                }
+                ui.horizontal(|ui| {
+                    ui.toggle_value(&mut self.edit_mode, "Edit");
+                    if ui.button("Next").clicked() {
+                        self.week.advance(conn);
+                    }
+                    if ui.button("Previous").clicked() {
+                        self.week.previous(conn);
+                    }
+                });
             });
 
         !open
