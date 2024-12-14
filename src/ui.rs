@@ -750,6 +750,9 @@ impl RecipeWindow {
                     });
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut self.edit_mode, "Edit");
+                    if !self.edit_mode {
+                        self.ingredient_being_edited = None;
+                    }
                     self.week.pick_date(conn, |date| {
                         ui.add(egui_extras::DatePickerButton::new(date));
                     });
