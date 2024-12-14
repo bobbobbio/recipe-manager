@@ -1133,18 +1133,21 @@ impl CalendarWindow {
                             ui.label("No Recipe");
                             if self.edit_mode {
                                 let e = self.recipes_being_selected.entry(day).or_default();
-                                ui.add(SearchWidget::new(
-                                    format!("recipe for {day}"),
-                                    &mut e.name,
-                                    &mut e.recipe_id,
-                                    |query| {
-                                        Self::search_recipes(
-                                            conn,
-                                            &mut e.cached_recipe_search,
-                                            query,
-                                        )
-                                    },
-                                ));
+                                ui.add_sized(
+                                    egui::vec2(200.0, 15.0),
+                                    SearchWidget::new(
+                                        format!("recipe for {day}"),
+                                        &mut e.name,
+                                        &mut e.recipe_id,
+                                        |query| {
+                                            Self::search_recipes(
+                                                conn,
+                                                &mut e.cached_recipe_search,
+                                                query,
+                                            )
+                                        },
+                                    ),
+                                );
                                 if ui.button("Select").clicked() && e.recipe_id.is_some() {
                                     self.week.schedule(conn, day, e.recipe_id.unwrap());
                                     self.edit_mode = false;
