@@ -1,8 +1,6 @@
-use super::{query, RecipeWindow};
+use super::{query, recipe::RecipeWindow};
 use crate::database;
-use crate::database::models::{
-    RecipeCategory, RecipeHandle, RecipeId,
-};
+use crate::database::models::{RecipeCategory, RecipeHandle, RecipeId};
 use diesel::ExpressionMethods as _;
 use diesel::QueryDsl as _;
 use diesel::RunQueryDsl as _;
