@@ -1,4 +1,7 @@
-use super::{query, this_week, RecipeWeek, SearchWidget};
+use super::{
+    calendar::{this_week, RecipeWeek},
+    query, SearchWidget,
+};
 use crate::database;
 use crate::database::models::{
     Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe, RecipeDuration,
