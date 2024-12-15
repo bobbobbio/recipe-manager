@@ -10,7 +10,8 @@ use std::collections::HashMap;
 
 pub struct RecipeListWindow {
     recipe_category: RecipeCategory,
-    recipes: HashMap<RecipeId, RecipeHandle>,
+    recipes: Vec<RecipeHandle>,
+    recipe_lookup: HashMap<RecipeId, usize>,
     edit_mode: bool,
     new_recipe_name: String,
 }
@@ -18,15 +19,20 @@ pub struct RecipeListWindow {
 impl RecipeListWindow {
     pub fn new(conn: &mut database::Connection, recipe_category: RecipeCategory) -> Self {
         use database::schema::recipes::dsl::*;
+        let recipe_vec = recipes
+            .select(RecipeHandle::as_select())
+            .filter(category.eq(recipe_category.id))
+            .order_by(name.asc())
+            .load(conn)
+            .unwrap();
+        let recipe_lookup = recipe_vec
+            .iter()
+            .enumerate()
+            .map(|(i, h)| (h.id, i))
+            .collect();
         Self {
-            recipes: recipes
-                .select(RecipeHandle::as_select())
-                .filter(category.eq(recipe_category.id))
-                .load(conn)
-                .unwrap()
-                .into_iter()
-                .map(|h| (h.id, h))
-                .collect(),
+            recipes: recipe_vec,
+            recipe_lookup,
             recipe_category,
             edit_mode: false,
             new_recipe_name: String::new(),
@@ -55,10 +61,7 @@ impl RecipeListWindow {
                     .max_height(scroll_height)
                     .show(ui, |ui| {
                         egui::Grid::new("recipe_listing").show(ui, |ui| {
-                            let mut sorted_recipes: Vec<_> = self.recipes.values().collect();
-                            sorted_recipes.sort_by_key(|r| &r.name);
-
-                            for RecipeHandle { name, id } in sorted_recipes {
+                            for RecipeHandle { name, id } in &self.recipes {
                                 let mut shown = recipe_windows.contains_key(&id);
                                 ui.toggle_value(&mut shown, name.clone());
 
@@ -115,8 +118,8 @@ impl RecipeListWindow {
     }
 
     pub fn recipe_name_changed(&mut self, recipe_id: RecipeId, new_name: String) {
-        if let Some(r) = self.recipes.get_mut(&recipe_id) {
-            r.name = new_name;
+        if let Some(i) = self.recipe_lookup.get_mut(&recipe_id) {
+            self.recipes[*i].name = new_name;
         }
     }
 }
