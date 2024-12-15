@@ -314,4 +314,8 @@ impl RecipeWindow {
             self.week.refresh(conn);
         }
     }
+
+    pub fn ingredient_edited(&mut self, conn: &mut database::Connection, _ingredient: Ingredient) {
+        *self = Self::new(conn, self.recipe.id, self.edit_mode);
+    }
 }

@@ -25,6 +25,11 @@ impl IngredientBeingEdited {
     }
 }
 
+pub enum UpdateEvent {
+    Closed,
+    IngredientEdited(Ingredient),
+}
+
 pub struct IngredientListWindow {
     all_ingredients: Vec<Ingredient>,
     edit_mode: bool,
@@ -48,8 +53,13 @@ impl IngredientListWindow {
         }
     }
 
-    pub fn update(&mut self, conn: &mut database::Connection, ctx: &egui::Context) -> bool {
+    pub fn update(
+        &mut self,
+        conn: &mut database::Connection,
+        ctx: &egui::Context,
+    ) -> Vec<UpdateEvent> {
         let mut open = true;
+        let mut events = vec![];
         let mut refresh_self = false;
         egui::Window::new("Ingredients")
             .open(&mut open)
@@ -90,6 +100,9 @@ impl IngredientListWindow {
                                             );
                                             self.ingredient_being_edited = None;
                                             refresh_self = true;
+                                            events.push(UpdateEvent::IngredientEdited(
+                                                ingredient.clone(),
+                                            ));
                                         }
                                         ui.end_row();
                                         continue;
@@ -127,6 +140,9 @@ impl IngredientListWindow {
         if refresh_self {
             *self = Self::new(conn, self.edit_mode);
         }
-        !open
+        if !open {
+            events.push(UpdateEvent::Closed);
+        }
+        events
     }
 }

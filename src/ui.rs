@@ -219,8 +219,16 @@ impl RecipeManager {
 
     fn update_ingredient_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.ingredient_list_window {
-            if window.update(&mut self.conn, ctx) {
-                self.ingredient_list_window = None;
+            let events = window.update(&mut self.conn, ctx);
+            for e in events {
+                match e {
+                    ingredient_list::UpdateEvent::Closed => self.ingredient_list_window = None,
+                    ingredient_list::UpdateEvent::IngredientEdited(ingredient) => {
+                        for r in self.recipes.values_mut() {
+                            r.ingredient_edited(&mut self.conn, ingredient.clone());
+                        }
+                    }
+                }
             }
         }
     }
