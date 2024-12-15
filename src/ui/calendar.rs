@@ -195,6 +195,7 @@ impl CalendarWindow {
                         ui.end_row();
                     }
                 });
+                ui.separator();
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut self.edit_mode, "Edit");
                     if ui.button("Next").clicked() {

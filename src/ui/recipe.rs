@@ -249,6 +249,7 @@ impl RecipeWindow {
                         }
                         ui.end_row();
                     });
+                ui.separator();
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut self.edit_mode, "Edit");
                     if !self.edit_mode {
