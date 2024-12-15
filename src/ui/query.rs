@@ -291,3 +291,51 @@ pub fn add_ingredient(conn: &mut database::Connection, new_name: &str) {
         .execute(conn)
         .unwrap();
 }
+
+pub fn search_ingredient_categories(
+    conn: &mut database::Connection,
+    cached_category_search: &mut Option<CachedQuery<()>>,
+    query: &str,
+) -> Vec<((), String)> {
+    if let Some(cached) = cached_category_search.as_ref() {
+        if cached.query == query {
+            return cached.results.clone();
+        }
+    }
+
+    use database::schema::ingredients::dsl::*;
+    use diesel::expression_methods::TextExpressionMethods as _;
+
+    let result: Vec<_> = ingredients
+        .select(category)
+        .filter(category.like(format!("%{query}%")))
+        .distinct()
+        .load(conn)
+        .unwrap()
+        .into_iter()
+        .flat_map(|n: Option<String>| n.map(|n| ((), n)))
+        .collect();
+
+    *cached_category_search = Some(CachedQuery {
+        query: query.into(),
+        results: result.clone(),
+    });
+    result
+}
+
+pub fn update_ingredient(
+    conn: &mut database::Connection,
+    edit_id: IngredientId,
+    edit_name: &str,
+    edit_category: &str,
+) {
+    use database::schema::ingredients::dsl::*;
+    use diesel::update;
+
+    let edit_category = (!edit_category.is_empty()).then_some(edit_category);
+    update(ingredients)
+        .filter(id.eq(edit_id))
+        .set((name.eq(edit_name), category.eq(edit_category)))
+        .execute(conn)
+        .unwrap();
+}

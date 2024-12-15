@@ -194,7 +194,7 @@ impl RecipeManager {
                     if ui.button("Ingredients").clicked() {
                         if self.ingredient_list_window.is_none() {
                             self.ingredient_list_window =
-                                Some(IngredientListWindow::new(&mut self.conn));
+                                Some(IngredientListWindow::new(&mut self.conn, false));
                         }
                         ui.close_menu();
                     }
