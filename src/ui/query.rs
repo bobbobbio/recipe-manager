@@ -278,3 +278,13 @@ pub fn search_recipes(
     });
     result
 }
+
+pub fn add_ingredient(conn: &mut database::Connection, new_name: &str) {
+    use database::schema::ingredients::dsl::*;
+    use diesel::insert_into;
+
+    insert_into(ingredients)
+        .values(name.eq(new_name))
+        .execute(conn)
+        .unwrap();
+}
