@@ -19,7 +19,7 @@ pub fn add_category(conn: &mut database::Connection, new_category_name: &str) {
         .unwrap();
 }
 
-pub fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategoryId) {
+pub fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategoryId) -> bool {
     let count: i64 = {
         use database::schema::recipes::dsl::*;
 
@@ -37,6 +37,9 @@ pub fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategor
         delete(recipe_categories.filter(id.eq(delete_id)))
             .execute(conn)
             .unwrap();
+        true
+    } else {
+        false
     }
 }
 

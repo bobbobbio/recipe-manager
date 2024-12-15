@@ -113,9 +113,10 @@ impl CategoryListWindow {
             refresh_self = true;
         }
         for cat in categories_to_delete {
-            query::delete_category(conn, cat);
-            refresh_self = true;
-            recipe_list_windows.remove(&cat);
+            if query::delete_category(conn, cat) {
+                refresh_self = true;
+                recipe_list_windows.remove(&cat);
+            }
         }
 
         if refresh_self {
