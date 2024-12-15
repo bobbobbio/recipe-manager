@@ -1,4 +1,4 @@
-use super::{query, RecipeListWindow};
+use super::{query, recipe_list::RecipeListWindow};
 use crate::database;
 use crate::database::models::{RecipeCategory, RecipeCategoryId};
 use diesel::QueryDsl as _;
@@ -61,7 +61,7 @@ impl CategoryListWindow {
                                     if ui.button("Save").clicked() {
                                         query::edit_category(conn, e.id, &e.name);
                                         if let Some(w) = recipe_list_windows.get_mut(&e.id) {
-                                            w.recipe_category.name = e.name.clone();
+                                            w.category_name_changed(e.name.clone());
                                         }
                                         refresh_self = true;
                                     }
