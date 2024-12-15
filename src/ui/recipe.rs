@@ -55,6 +55,7 @@ pub struct RecipeWindow {
 
 impl RecipeWindow {
     pub fn new(conn: &mut database::Connection, recipe_id: RecipeId, edit_mode: bool) -> Self {
+        use database::schema::ingredients;
         use database::schema::recipes::dsl::*;
         let recipe = recipes
             .select(Recipe::as_select())
@@ -64,6 +65,7 @@ impl RecipeWindow {
         let ingredients = IngredientUsage::belonging_to(&recipe)
             .inner_join(database::schema::ingredients::table)
             .select((IngredientUsage::as_select(), Ingredient::as_select()))
+            .order_by(ingredients::dsl::name.asc())
             .load(conn)
             .unwrap();
         Self {
