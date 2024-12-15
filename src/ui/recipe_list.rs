@@ -45,9 +45,8 @@ impl RecipeListWindow {
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
     ) -> bool {
-        let mut recipes_to_delete = vec![];
         let mut open = true;
-        let mut add_recipe = false;
+        let mut refresh_self = false;
         egui::Window::new(&self.recipe_category.name)
             .id(egui::Id::new((
                 "recipe category list",
@@ -67,7 +66,9 @@ impl RecipeListWindow {
 
                                 if self.edit_mode {
                                     if ui.button("Delete").clicked() {
-                                        recipes_to_delete.push(*id);
+                                        query::delete_recipe(conn, *id);
+                                        refresh_self = true;
+                                        recipe_windows.remove(id);
                                     }
                                 }
                                 ui.end_row();
@@ -88,23 +89,14 @@ impl RecipeListWindow {
                             egui::TextEdit::singleline(&mut self.new_recipe_name)
                                 .desired_width(ui.available_width() - 100.0),
                         );
-                        add_recipe = ui.button("Add").clicked();
+                        if ui.button("Add").clicked() {
+                            query::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
+                            self.new_recipe_name = "".into();
+                            refresh_self = true;
+                        }
                     }
                 });
             });
-
-        let mut refresh_self = false;
-        for recipe in recipes_to_delete {
-            query::delete_recipe(conn, recipe);
-            refresh_self = true;
-            recipe_windows.remove(&recipe);
-        }
-
-        if add_recipe {
-            query::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
-            self.new_recipe_name = "".into();
-            refresh_self = true;
-        }
 
         if refresh_self {
             *self = Self::new(conn, self.recipe_category.clone());
