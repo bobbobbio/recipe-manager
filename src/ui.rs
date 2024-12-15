@@ -117,6 +117,7 @@ pub struct RecipeManager {
     recipes: HashMap<RecipeId, RecipeWindow>,
     ingredient_list_window: Option<IngredientListWindow>,
     calendar_window: Option<CalendarWindow>,
+    toasts: egui_toast::Toasts,
 }
 
 impl RecipeManager {
@@ -129,12 +130,19 @@ impl RecipeManager {
             recipes: Default::default(),
             ingredient_list_window: None,
             calendar_window: None,
+            toasts: egui_toast::Toasts::new()
+                .anchor(egui::Align2::LEFT_BOTTOM, (10.0, 10.0))
+                .direction(egui::Direction::BottomUp),
         }
     }
 
     fn update_category_list_window(&mut self, ctx: &egui::Context) {
-        self.category_list
-            .update(ctx, &mut self.conn, &mut self.recipe_lists);
+        self.category_list.update(
+            ctx,
+            &mut self.conn,
+            &mut self.toasts,
+            &mut self.recipe_lists,
+        );
     }
 
     fn update_recipe_list_windows(&mut self, ctx: &egui::Context) {
@@ -150,7 +158,7 @@ impl RecipeManager {
     fn update_recipes(&mut self, ctx: &egui::Context) {
         for (id, mut recipe) in mem::take(&mut self.recipes) {
             let mut closed = false;
-            let events = recipe.update(ctx, &mut self.conn);
+            let events = recipe.update(ctx, &mut self.conn, &mut self.toasts);
             for e in events {
                 match e {
                     recipe::UpdateEvent::Closed => closed = true,
@@ -245,5 +253,6 @@ impl eframe::App for RecipeManager {
         self.update_recipe_list_windows(ctx);
         self.update_recipes(ctx);
         self.update_calendar_window(ctx);
+        self.toasts.show(ctx);
     }
 }

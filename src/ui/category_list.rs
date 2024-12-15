@@ -38,6 +38,7 @@ impl CategoryListWindow {
         &mut self,
         ctx: &egui::Context,
         conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
         recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
     ) {
         let mut refresh_self = false;
@@ -116,6 +117,16 @@ impl CategoryListWindow {
             if query::delete_category(conn, cat) {
                 refresh_self = true;
                 recipe_list_windows.remove(&cat);
+            } else {
+                toasts.add(egui_toast::Toast {
+                    text: "Couldn't delete category, it still contains recipes".into(),
+                    kind: egui_toast::ToastKind::Error,
+                    options: egui_toast::ToastOptions::default()
+                        .duration_in_seconds(3.0)
+                        .show_progress(false)
+                        .show_icon(true),
+                    ..Default::default()
+                });
             }
         }
 

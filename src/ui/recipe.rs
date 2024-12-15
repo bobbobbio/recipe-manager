@@ -78,7 +78,12 @@ impl RecipeWindow {
         }
     }
 
-    fn update_ingredients(&mut self, conn: &mut database::Connection, ui: &mut egui::Ui) {
+    fn update_ingredients(
+        &mut self,
+        conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
+        ui: &mut egui::Ui,
+    ) {
         let mut refresh_self = false;
         let name = &self.recipe.name;
         egui::Grid::new(format!("{name} ingredients")).show(ui, |ui| {
@@ -124,15 +129,27 @@ impl RecipeWindow {
                                 }
                                 ui.selectable_value(&mut e.quantity_units, None, "");
                             });
-                        if ui.button("Save").clicked() && e.ingredient.is_some() {
-                            query::edit_recipe_ingredient(
-                                conn,
-                                e.usage_id,
-                                e.ingredient.as_ref().unwrap(),
-                                e.quantity.parse().unwrap_or(0.0),
-                                e.quantity_units,
-                            );
-                            refresh_self = true;
+                        if ui.button("Save").clicked() {
+                            if e.ingredient.is_some() {
+                                query::edit_recipe_ingredient(
+                                    conn,
+                                    e.usage_id,
+                                    e.ingredient.as_ref().unwrap(),
+                                    e.quantity.parse().unwrap_or(0.0),
+                                    e.quantity_units,
+                                );
+                                refresh_self = true;
+                            } else {
+                                toasts.add(egui_toast::Toast {
+                                    text: "Couldn't find ingredient".into(),
+                                    kind: egui_toast::ToastKind::Error,
+                                    options: egui_toast::ToastOptions::default()
+                                        .duration_in_seconds(3.0)
+                                        .show_progress(false)
+                                        .show_icon(true),
+                                    ..Default::default()
+                                });
+                            }
                         }
                         ui.end_row();
                         continue;
@@ -181,6 +198,16 @@ impl RecipeWindow {
                         self.new_ingredient_name = "".into();
                         self.new_ingredient = None;
                         refresh_self = true;
+                    } else {
+                        toasts.add(egui_toast::Toast {
+                            text: "Couldn't find ingredient".into(),
+                            kind: egui_toast::ToastKind::Error,
+                            options: egui_toast::ToastOptions::default()
+                                .duration_in_seconds(3.0)
+                                .show_progress(false)
+                                .show_icon(true),
+                            ..Default::default()
+                        });
                     }
                 }
             });
@@ -195,6 +222,7 @@ impl RecipeWindow {
         &mut self,
         ctx: &egui::Context,
         conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
     ) -> Vec<UpdateEvent> {
         let mut events = vec![];
         let mut open = true;
@@ -202,7 +230,7 @@ impl RecipeWindow {
             .id(egui::Id::new(("recipe", self.recipe.id)))
             .open(&mut open)
             .show(ctx, |ui| {
-                self.update_ingredients(conn, ui);
+                self.update_ingredients(conn, toasts, ui);
                 egui::Grid::new("Recipe Information")
                     .num_columns(2)
                     .show(ui, |ui| {
