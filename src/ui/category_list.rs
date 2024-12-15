@@ -1,6 +1,7 @@
 use super::{query, recipe_list::RecipeListWindow};
 use crate::database;
 use crate::database::models::{RecipeCategory, RecipeCategoryId};
+use diesel::ExpressionMethods as _;
 use diesel::QueryDsl as _;
 use diesel::RunQueryDsl as _;
 use diesel::SelectableHelper as _;
@@ -12,7 +13,7 @@ struct CategoryBeingEdited {
 }
 
 pub struct CategoryListWindow {
-    categories: HashMap<RecipeCategoryId, RecipeCategory>,
+    categories: Vec<RecipeCategory>,
     new_category_name: String,
     edit_mode: bool,
     category_being_edited: Option<CategoryBeingEdited>,
@@ -24,11 +25,9 @@ impl CategoryListWindow {
         Self {
             categories: recipe_categories
                 .select(RecipeCategory::as_select())
+                .order_by(name.asc())
                 .load(conn)
-                .unwrap()
-                .into_iter()
-                .map(|cat| (cat.id, cat))
-                .collect(),
+                .unwrap(),
             new_category_name: String::new(),
             edit_mode: false,
             category_being_edited: None,
@@ -51,10 +50,7 @@ impl CategoryListWindow {
                 .max_height(scroll_height)
                 .show(ui, |ui| {
                     egui::Grid::new("categories grid").show(ui, |ui| {
-                        let mut sorted_categories: Vec<_> = self.categories.values().collect();
-                        sorted_categories.sort_by_key(|cat| &cat.name);
-
-                        for RecipeCategory { name, id: cat_id } in sorted_categories {
+                        for RecipeCategory { name, id: cat_id } in &self.categories {
                             if let Some(e) = &mut self.category_being_edited {
                                 if e.id == *cat_id {
                                     ui.add(egui::TextEdit::singleline(&mut e.name));
