@@ -1,6 +1,6 @@
 // Copyright 2023 Remi Bernotavicius
 
-mod category;
+mod category_list;
 mod query;
 mod recipe_list;
 
@@ -10,7 +10,7 @@ use crate::database::models::{
     RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
 use crate::import;
-use category::CategoryListWindow;
+use category_list::CategoryListWindow;
 use diesel::BelongingToDsl as _;
 use diesel::ExpressionMethods as _;
 use diesel::QueryDsl as _;
