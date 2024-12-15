@@ -177,17 +177,23 @@ impl RecipeManager {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    if ui.button("Import").clicked() && self.import_window.is_none() {
-                        self.import_window = Some(ImportWindow::default());
+                    if ui.button("Import").clicked() {
+                        if self.import_window.is_none() {
+                            self.import_window = Some(ImportWindow::default());
+                        }
                         ui.close_menu();
                     }
-                    if ui.button("Ingredients").clicked() && self.ingredient_list_window.is_none() {
-                        self.ingredient_list_window =
-                            Some(IngredientListWindow::new(&mut self.conn));
+                    if ui.button("Ingredients").clicked() {
+                        if self.ingredient_list_window.is_none() {
+                            self.ingredient_list_window =
+                                Some(IngredientListWindow::new(&mut self.conn));
+                        }
                         ui.close_menu();
                     }
-                    if ui.button("Calendar").clicked() && self.calendar_window.is_none() {
-                        self.calendar_window = Some(CalendarWindow::new(&mut self.conn));
+                    if ui.button("Calendar").clicked() {
+                        if self.calendar_window.is_none() {
+                            self.calendar_window = Some(CalendarWindow::new(&mut self.conn));
+                        }
                         ui.close_menu();
                     }
                 });
