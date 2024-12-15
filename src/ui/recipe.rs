@@ -277,4 +277,10 @@ impl RecipeWindow {
         }
         events
     }
+
+    pub fn recipe_scheduled(&mut self, conn: &mut database::Connection, week: chrono::NaiveWeek) {
+        if self.week.week() == &week {
+            self.week.refresh(conn);
+        }
+    }
 }

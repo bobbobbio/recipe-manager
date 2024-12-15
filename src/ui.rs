@@ -213,8 +213,18 @@ impl RecipeManager {
 
     fn update_calendar_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.calendar_window {
-            if window.update(&mut self.conn, ctx) {
-                self.calendar_window = None;
+            let events = window.update(&mut self.conn, ctx);
+            for e in events {
+                match e {
+                    calendar::UpdateEvent::Closed => {
+                        self.calendar_window = None;
+                    }
+                    calendar::UpdateEvent::RecipeScheduled { week } => {
+                        for recipe in self.recipes.values_mut() {
+                            recipe.recipe_scheduled(&mut self.conn, week);
+                        }
+                    }
+                }
             }
         }
     }

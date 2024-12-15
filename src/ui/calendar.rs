@@ -98,6 +98,14 @@ impl RecipeWeek {
         query::insert_or_update_calendar_entry(conn, self.date_for_day(day), id);
         *self = Self::new(conn, self.start);
     }
+
+    pub fn week(&self) -> &chrono::NaiveWeek {
+        &self.start
+    }
+
+    pub fn refresh(&mut self, conn: &mut database::Connection) {
+        self.week = query::get_calendar_week(conn, self.start);
+    }
 }
 
 #[derive(Default)]
@@ -105,6 +113,11 @@ struct RecipeBeingSelected {
     name: String,
     recipe_id: Option<RecipeId>,
     cached_recipe_search: Option<query::CachedQuery<RecipeId>>,
+}
+
+pub enum UpdateEvent {
+    Closed,
+    RecipeScheduled { week: chrono::NaiveWeek },
 }
 
 pub struct CalendarWindow {
@@ -123,10 +136,15 @@ impl CalendarWindow {
     }
 
     pub fn refresh(&mut self, conn: &mut database::Connection) {
-        self.week = RecipeWeek::new(conn, self.week.start);
+        self.week.refresh(conn);
     }
 
-    pub fn update(&mut self, conn: &mut database::Connection, ctx: &egui::Context) -> bool {
+    pub fn update(
+        &mut self,
+        conn: &mut database::Connection,
+        ctx: &egui::Context,
+    ) -> Vec<UpdateEvent> {
+        let mut events = vec![];
         let mut open = true;
         egui::Window::new("Calendar")
             .open(&mut open)
@@ -167,6 +185,9 @@ impl CalendarWindow {
                                 );
                                 if ui.button("Select").clicked() && e.recipe_id.is_some() {
                                     self.week.schedule(conn, day, e.recipe_id.unwrap());
+                                    events.push(UpdateEvent::RecipeScheduled {
+                                        week: self.week.week().clone(),
+                                    });
                                     self.edit_mode = false;
                                 }
                             }
@@ -187,6 +208,9 @@ impl CalendarWindow {
                 });
             });
 
-        !open
+        if !open {
+            events.push(UpdateEvent::Closed);
+        }
+        events
     }
 }
