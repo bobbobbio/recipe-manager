@@ -36,6 +36,12 @@ impl IngredientBeingEdited {
     }
 }
 
+pub enum UpdateEvent {
+    Closed,
+    Renamed(Recipe),
+    Scheduled,
+}
+
 pub struct RecipeWindow {
     recipe: Recipe,
     ingredients: Vec<(IngredientUsage, Ingredient)>,
@@ -185,7 +191,12 @@ impl RecipeWindow {
         }
     }
 
-    pub fn update(&mut self, ctx: &egui::Context, conn: &mut database::Connection) -> bool {
+    pub fn update(
+        &mut self,
+        ctx: &egui::Context,
+        conn: &mut database::Connection,
+    ) -> Vec<UpdateEvent> {
+        let mut events = vec![];
         let mut open = true;
         egui::Window::new(self.recipe.name.clone())
             .id(egui::Id::new(("recipe", self.recipe.id)))
@@ -202,6 +213,7 @@ impl RecipeWindow {
                             if name != self.recipe.name {
                                 query::edit_recipe_name(conn, self.recipe.id, &name);
                                 self.recipe.name = name.clone();
+                                events.push(UpdateEvent::Renamed(self.recipe.clone()));
                             }
                             ui.end_row();
                         }
@@ -253,15 +265,16 @@ impl RecipeWindow {
                             if ui.button(format!("{day}: {recipe}")).clicked() {
                                 self.week.schedule(conn, day, self.recipe.id);
                                 ui.close_menu();
+                                events.push(UpdateEvent::Scheduled);
                             }
                         }
                     });
                 });
             });
-        !open
-    }
 
-    pub fn recipe(&self) -> &Recipe {
-        &self.recipe
+        if !open {
+            events.push(UpdateEvent::Closed);
+        }
+        events
     }
 }

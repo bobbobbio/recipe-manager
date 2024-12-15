@@ -149,12 +149,21 @@ impl RecipeManager {
 
     fn update_recipes(&mut self, ctx: &egui::Context) {
         for (id, mut recipe) in mem::take(&mut self.recipes) {
-            let old_name = recipe.recipe().name.to_owned();
-            let closed = recipe.update(ctx, &mut self.conn);
-
-            if old_name != recipe.recipe().name {
-                if let Some(list) = self.recipe_lists.get_mut(&recipe.recipe().category) {
-                    list.recipe_name_changed(recipe.recipe().id, recipe.recipe().name.clone());
+            let mut closed = false;
+            let events = recipe.update(ctx, &mut self.conn);
+            for e in events {
+                match e {
+                    recipe::UpdateEvent::Closed => closed = true,
+                    recipe::UpdateEvent::Renamed(recipe) => {
+                        if let Some(list) = self.recipe_lists.get_mut(&recipe.category) {
+                            list.recipe_name_changed(recipe.id, recipe.name);
+                        }
+                    }
+                    recipe::UpdateEvent::Scheduled => {
+                        if let Some(c) = self.calendar_window.as_mut() {
+                            c.refresh(&mut self.conn);
+                        }
+                    }
                 }
             }
 

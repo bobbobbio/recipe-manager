@@ -122,6 +122,10 @@ impl CalendarWindow {
         }
     }
 
+    pub fn refresh(&mut self, conn: &mut database::Connection) {
+        self.week = RecipeWeek::new(conn, self.week.start);
+    }
+
     pub fn update(&mut self, conn: &mut database::Connection, ctx: &egui::Context) -> bool {
         let mut open = true;
         egui::Window::new("Calendar")
