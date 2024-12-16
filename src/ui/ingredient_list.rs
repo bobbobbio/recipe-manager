@@ -1,7 +1,4 @@
-use super::{
-    query,
-    search::{SearchParam, SearchWidget},
-};
+use super::{query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{Ingredient, IngredientHandle, IngredientId};
 use diesel::ExpressionMethods as _;
@@ -60,7 +57,7 @@ impl IngredientListWindow {
         &mut self,
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
-        mut add_search_window: impl FnMut(Vec<SearchParam>),
+        mut search_for_ingredient: impl FnMut(&mut database::Connection, IngredientHandle),
         ctx: &egui::Context,
     ) -> Vec<UpdateEvent> {
         let mut open = true;
@@ -140,12 +137,13 @@ impl IngredientListWindow {
                                     }
                                 } else {
                                     if ui.button("Search").clicked() {
-                                        add_search_window(vec![SearchParam::IngredientEqual(
+                                        search_for_ingredient(
+                                            conn,
                                             IngredientHandle {
                                                 id: ingredient.id,
                                                 name: ingredient.name.clone(),
                                             },
-                                        )]);
+                                        );
                                     }
                                 }
                                 ui.end_row();

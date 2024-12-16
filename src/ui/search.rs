@@ -1,7 +1,7 @@
-use super::{query, recipe::RecipeWindow};
+use super::recipe::RecipeWindow;
 use crate::database::{
     self,
-    models::{IngredientHandle, RecipeHandle, RecipeId},
+    models::{RecipeHandle, RecipeId},
 };
 use eframe::egui;
 use std::collections::HashMap;
@@ -95,23 +95,15 @@ where
     }
 }
 
-pub enum SearchParam {
-    IngredientEqual(IngredientHandle),
-}
-
 pub struct SearchResultsWindow {
     id: u64,
-    query: Vec<SearchParam>,
+    query: String,
     results: Vec<RecipeHandle>,
 }
 
 impl SearchResultsWindow {
-    pub fn new(id: u64, query: Vec<SearchParam>) -> Self {
-        Self {
-            id,
-            query,
-            results: vec![],
-        }
+    pub fn new(id: u64, query: String, results: Vec<RecipeHandle>) -> Self {
+        Self { id, query, results }
     }
 
     pub fn update(
@@ -120,26 +112,13 @@ impl SearchResultsWindow {
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
     ) -> bool {
-        self.results = if self.query.is_empty() {
-            vec![]
-        } else {
-            let SearchParam::IngredientEqual(i) = &self.query[0];
-            query::search_recipes_by_ingredient(conn, i.id)
-        };
-
         let mut open = true;
-        egui::Window::new("Search")
+        egui::Window::new("Search Results")
             .id(egui::Id::new(("search window", self.id)))
             .open(&mut open)
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
-                    for param in &self.query {
-                        match param {
-                            SearchParam::IngredientEqual(i) => {
-                                ui.label(format!("ingredient == {}", &i.name));
-                            }
-                        }
-                    }
+                    ui.label(&self.query);
 
                     for recipe in &self.results {
                         let mut shown = recipe_windows.contains_key(&recipe.id);

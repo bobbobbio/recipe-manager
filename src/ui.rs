@@ -10,7 +10,7 @@ mod recipe_list;
 mod search;
 
 use crate::database;
-use crate::database::models::{RecipeCategoryId, RecipeId};
+use crate::database::models::{IngredientHandle, RecipeCategoryId, RecipeId};
 use calendar::CalendarWindow;
 use category_list::CategoryListWindow;
 use eframe::egui;
@@ -31,7 +31,7 @@ pub struct RecipeManager {
     recipes: HashMap<RecipeId, RecipeWindow>,
     ingredient_list_window: Option<IngredientListWindow>,
     calendar_window: Option<CalendarWindow>,
-    search_windows: Vec<SearchResultsWindow>,
+    search_result_windows: Vec<SearchResultsWindow>,
     next_search_window_id: u64,
 }
 
@@ -45,12 +45,28 @@ impl RecipeManager {
             recipes: Default::default(),
             ingredient_list_window: None,
             calendar_window: None,
-            search_windows: Default::default(),
+            search_result_windows: Default::default(),
             next_search_window_id: 0,
             toasts: egui_toast::Toasts::new()
                 .anchor(egui::Align2::LEFT_BOTTOM, (10.0, 10.0))
                 .direction(egui::Direction::BottomUp),
         }
+    }
+
+    fn ingredient_search(
+        conn: &mut database::Connection,
+        search_result_windows: &mut Vec<SearchResultsWindow>,
+        next_search_window_id: &mut u64,
+        ingredient: IngredientHandle,
+    ) {
+        let results = query::search_recipes_by_ingredient(conn, ingredient.id);
+        let query = format!("Recipes using \"{}\"", &ingredient.name);
+        search_result_windows.push(SearchResultsWindow::new(
+            *next_search_window_id,
+            query,
+            results,
+        ));
+        *next_search_window_id += 1;
     }
 
     fn update_category_list_window(&mut self, ctx: &egui::Context) {
@@ -121,12 +137,6 @@ impl RecipeManager {
                         }
                         ui.close_menu();
                     }
-                    if ui.button("Search").clicked() {
-                        self.search_windows
-                            .push(SearchResultsWindow::new(self.next_search_window_id, vec![]));
-                        self.next_search_window_id += 1;
-                        ui.close_menu();
-                    }
                 });
             });
         });
@@ -142,12 +152,16 @@ impl RecipeManager {
 
     fn update_ingredient_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.ingredient_list_window {
-            let add_search_window = |query| {
-                self.search_windows
-                    .push(SearchResultsWindow::new(self.next_search_window_id, query));
-                self.next_search_window_id += 1;
+            let search_for_ingredient = |conn: &mut database::Connection, ingredient| {
+                Self::ingredient_search(
+                    conn,
+                    &mut self.search_result_windows,
+                    &mut self.next_search_window_id,
+                    ingredient,
+                )
             };
-            let events = window.update(&mut self.conn, &mut self.toasts, add_search_window, ctx);
+            let events =
+                window.update(&mut self.conn, &mut self.toasts, search_for_ingredient, ctx);
             for e in events {
                 match e {
                     ingredient_list::UpdateEvent::Closed => self.ingredient_list_window = None,
@@ -179,10 +193,10 @@ impl RecipeManager {
         }
     }
 
-    fn update_search_windows(&mut self, ctx: &egui::Context) {
-        for mut sw in mem::take(&mut self.search_windows) {
+    fn update_search_result_windows(&mut self, ctx: &egui::Context) {
+        for mut sw in mem::take(&mut self.search_result_windows) {
             if !sw.update(ctx, &mut self.conn, &mut self.recipes) {
-                self.search_windows.push(sw);
+                self.search_result_windows.push(sw);
             }
         }
     }
@@ -197,7 +211,7 @@ impl eframe::App for RecipeManager {
         self.update_recipe_list_windows(ctx);
         self.update_recipes(ctx);
         self.update_calendar_window(ctx);
-        self.update_search_windows(ctx);
+        self.update_search_result_windows(ctx);
         self.toasts.show(ctx);
     }
 }
