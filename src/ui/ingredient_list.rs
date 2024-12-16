@@ -56,6 +56,7 @@ impl IngredientListWindow {
     pub fn update(
         &mut self,
         conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
         ctx: &egui::Context,
     ) -> Vec<UpdateEvent> {
         let mut open = true;
@@ -115,6 +116,21 @@ impl IngredientListWindow {
                                     if ui.button("Edit").clicked() {
                                         self.ingredient_being_edited =
                                             Some(IngredientBeingEdited::new(ingredient.clone()))
+                                    }
+                                    if ui.button("Delete").clicked() {
+                                        if query::delete_ingredient(conn, ingredient.id) {
+                                            refresh_self = true;
+                                        } else {
+                                            toasts.add(egui_toast::Toast {
+                                                text: "Couldn't delete ingredient, it is still being used by recipes".into(),
+                                                kind: egui_toast::ToastKind::Error,
+                                                options: egui_toast::ToastOptions::default()
+                                                    .duration_in_seconds(3.0)
+                                                    .show_progress(false)
+                                                    .show_icon(true),
+                                                ..Default::default()
+                                            });
+                                        }
                                     }
                                 }
                                 ui.end_row();

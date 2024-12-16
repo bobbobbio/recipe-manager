@@ -43,6 +43,30 @@ pub fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategor
     }
 }
 
+pub fn delete_ingredient(conn: &mut database::Connection, delete_id: IngredientId) -> bool {
+    let count: i64 = {
+        use database::schema::ingredient_usages::dsl::*;
+
+        ingredient_usages
+            .filter(ingredient_id.eq(delete_id))
+            .count()
+            .get_result(conn)
+            .unwrap()
+    };
+
+    if count == 0 {
+        use database::schema::ingredients::dsl::*;
+        use diesel::delete;
+
+        delete(ingredients.filter(id.eq(delete_id)))
+            .execute(conn)
+            .unwrap();
+        true
+    } else {
+        false
+    }
+}
+
 pub fn edit_category(
     conn: &mut database::Connection,
     id_to_edit: RecipeCategoryId,
