@@ -3,6 +3,7 @@ use crate::database::models::{
     Ingredient, IngredientId, IngredientMeasurement, IngredientUsageId, RecipeCategoryId,
     RecipeDuration, RecipeHandle, RecipeId,
 };
+use diesel::BoolExpressionMethods as _;
 use diesel::ExpressionMethods as _;
 use diesel::JoinOnDsl as _;
 use diesel::QueryDsl as _;
@@ -22,51 +23,35 @@ pub fn add_category(conn: &mut database::Connection, new_category_name: &str) {
 }
 
 pub fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategoryId) -> bool {
-    let count: i64 = {
-        use database::schema::recipes::dsl::*;
+    use database::schema::{recipe_categories, recipes};
+    use diesel::delete;
+    use diesel::dsl::{exists, not};
 
-        recipes
-            .filter(category.eq(delete_id))
-            .count()
-            .get_result(conn)
-            .unwrap()
-    };
+    let affected = delete(recipe_categories::table.filter(
+        recipe_categories::id.eq(delete_id).and(not(exists(
+            recipes::table.filter(recipes::category.eq(delete_id)),
+        ))),
+    ))
+    .execute(conn)
+    .unwrap();
 
-    if count == 0 {
-        use database::schema::recipe_categories::dsl::*;
-        use diesel::delete;
-
-        delete(recipe_categories.filter(id.eq(delete_id)))
-            .execute(conn)
-            .unwrap();
-        true
-    } else {
-        false
-    }
+    affected > 0
 }
 
 pub fn delete_ingredient(conn: &mut database::Connection, delete_id: IngredientId) -> bool {
-    let count: i64 = {
-        use database::schema::ingredient_usages::dsl::*;
+    use database::schema::{ingredient_usages, ingredients};
+    use diesel::delete;
+    use diesel::dsl::{exists, not};
 
-        ingredient_usages
-            .filter(ingredient_id.eq(delete_id))
-            .count()
-            .get_result(conn)
-            .unwrap()
-    };
+    let affected = delete(
+        ingredients::table.filter(ingredients::id.eq(delete_id).and(not(exists(
+            ingredient_usages::table.filter(ingredient_usages::ingredient_id.eq(delete_id)),
+        )))),
+    )
+    .execute(conn)
+    .unwrap();
 
-    if count == 0 {
-        use database::schema::ingredients::dsl::*;
-        use diesel::delete;
-
-        delete(ingredients.filter(id.eq(delete_id)))
-            .execute(conn)
-            .unwrap();
-        true
-    } else {
-        false
-    }
+    affected > 0
 }
 
 pub fn edit_category(
