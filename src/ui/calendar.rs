@@ -24,28 +24,40 @@ fn full_day_name(day: chrono::Weekday) -> &'static str {
 }
 
 fn generate_and_open_menu(week: &RecipeWeek) -> crate::Result<()> {
-    let mut markdown = String::new();
-    markdown += "**Menu for the Week**  \n";
-    markdown += &week
+    let mut rich_text = String::new();
+    rich_text += "{\\rtf1\n";
+    rich_text +=
+        "{\\fonttbl\\f0\\fnil\\fcharset0 HelveticaNeue-Bold;\\f1\\fswiss\\fcharset0 Helvetica;}\n";
+
+    rich_text += "\\pard";
+    for i in 1..13 {
+        rich_text += &format!("\\tx{}", i * 560);
+    }
+    rich_text += "\\pardirnatural\\partightenfactor0\n";
+    rich_text += "\\f0\\b\\fs24 \\cf0 Menu for the Week \\\n";
+    rich_text += &week
         .start
         .first_day()
-        .format_with_items(chrono::format::StrftimeItems::new(
-            "**of the %e, %B %Y**  \n",
-        ))
+        .format_with_items(chrono::format::StrftimeItems::new("of the %e, %B %Y\n"))
         .to_string();
-    markdown += "\n";
-    markdown += "|  | |  |\n";
-    markdown += "|:-|-|:-|\n";
+    rich_text += "\\f1\\b0 ";
     for (day, recipe) in week.recipes() {
-        let day = full_day_name(day);
+        let day_str = full_day_name(day);
         let recipe = recipe.map(|r| r.name).unwrap_or("No Recipe".into());
-        markdown += &format!("|{day}|&emsp;|{recipe}|\n",);
+        let tabs = if day == chrono::Weekday::Wed {
+            "\t"
+        } else {
+            "\t\t"
+        };
+
+        rich_text += &format!("\\\n{day_str}{tabs}{recipe}");
     }
+    rich_text += "}";
 
     let menus_dir = crate::data_path()?.join("menus");
     std::fs::create_dir_all(&menus_dir)?;
-    let menu_path = menus_dir.join(format!("menu-{}.md", week.start.first_day()));
-    std::fs::write(&menu_path, markdown)?;
+    let menu_path = menus_dir.join(format!("menu-{}.rtf", week.start.first_day()));
+    std::fs::write(&menu_path, rich_text)?;
     open::that(menu_path)?;
     Ok(())
 }
