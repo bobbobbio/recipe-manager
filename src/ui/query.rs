@@ -4,9 +4,11 @@ use crate::database::models::{
     RecipeDuration, RecipeHandle, RecipeId,
 };
 use diesel::ExpressionMethods as _;
+use diesel::JoinOnDsl as _;
 use diesel::QueryDsl as _;
 use diesel::RunQueryDsl as _;
 use diesel::SelectableHelper as _;
+
 use std::collections::HashMap;
 
 pub fn add_category(conn: &mut database::Connection, new_category_name: &str) {
@@ -373,4 +375,18 @@ pub fn update_ingredient(
         .set((name.eq(edit_name), category.eq(edit_category)))
         .execute(conn)
         .unwrap();
+}
+
+pub fn search_recipes_by_ingredient(
+    conn: &mut database::Connection,
+    ingredient_id: IngredientId,
+) -> Vec<RecipeHandle> {
+    use database::schema::{ingredient_usages, ingredients, recipes};
+    recipes::table
+        .inner_join(ingredient_usages::table.on(ingredient_usages::recipe_id.eq(recipes::id)))
+        .inner_join(ingredients::table.on(ingredient_usages::ingredient_id.eq(ingredients::id)))
+        .filter(ingredients::id.eq(ingredient_id))
+        .select(RecipeHandle::as_select())
+        .load(conn)
+        .unwrap()
 }

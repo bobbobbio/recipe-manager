@@ -1,13 +1,8 @@
-use super::recipe::RecipeWindow;
+use super::{query, recipe::RecipeWindow};
 use crate::database::{
     self,
     models::{IngredientHandle, RecipeHandle, RecipeId},
 };
-use diesel::ExpressionMethods as _;
-use diesel::JoinOnDsl as _;
-use diesel::QueryDsl as _;
-use diesel::RunQueryDsl as _;
-use diesel::SelectableHelper as _;
 use eframe::egui;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -125,23 +120,11 @@ impl SearchWindow {
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
     ) -> bool {
-        use database::schema::{ingredient_usages, ingredients, recipes};
-
         self.results = if self.query.is_empty() {
             vec![]
         } else {
             let SearchParam::IngredientEqual(i) = &self.query[0];
-            recipes::table
-                .inner_join(
-                    ingredient_usages::table.on(ingredient_usages::recipe_id.eq(recipes::id)),
-                )
-                .inner_join(
-                    ingredients::table.on(ingredient_usages::ingredient_id.eq(ingredients::id)),
-                )
-                .filter(ingredients::id.eq(i.id))
-                .select(RecipeHandle::as_select())
-                .load(conn)
-                .unwrap()
+            query::search_recipes_by_ingredient(conn, i.id)
         };
 
         let mut open = true;
