@@ -1,8 +1,9 @@
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientId, IngredientMeasurement, IngredientUsageId, RecipeCategoryId,
-    RecipeDuration, RecipeHandle, RecipeId,
+    Ingredient, IngredientId, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
+    RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
+use diesel::BelongingToDsl as _;
 use diesel::BoolExpressionMethods as _;
 use diesel::Connection as _;
 use diesel::ExpressionMethods as _;
@@ -368,4 +369,25 @@ pub fn search_recipes_by_ingredient(
         .select(RecipeHandle::as_select())
         .load(conn)
         .unwrap()
+}
+
+pub fn get_recipe(
+    conn: &mut database::Connection,
+    recipe_id: RecipeId,
+) -> (Recipe, Vec<(IngredientUsage, Ingredient)>) {
+    use database::schema::ingredients;
+    use database::schema::recipes::dsl::*;
+
+    let recipe = recipes
+        .select(Recipe::as_select())
+        .filter(id.eq(recipe_id))
+        .get_result(conn)
+        .unwrap();
+    let ingredients = IngredientUsage::belonging_to(&recipe)
+        .inner_join(database::schema::ingredients::table)
+        .select((IngredientUsage::as_select(), Ingredient::as_select()))
+        .order_by(ingredients::dsl::name.asc())
+        .load(conn)
+        .unwrap();
+    (recipe, ingredients)
 }

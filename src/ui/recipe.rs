@@ -8,11 +8,6 @@ use crate::database::models::{
     Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe, RecipeDuration,
     RecipeId,
 };
-use diesel::BelongingToDsl as _;
-use diesel::ExpressionMethods as _;
-use diesel::QueryDsl as _;
-use diesel::RunQueryDsl as _;
-use diesel::SelectableHelper as _;
 use eframe::egui;
 
 struct IngredientBeingEdited {
@@ -56,19 +51,7 @@ pub struct RecipeWindow {
 
 impl RecipeWindow {
     pub fn new(conn: &mut database::Connection, recipe_id: RecipeId, edit_mode: bool) -> Self {
-        use database::schema::ingredients;
-        use database::schema::recipes::dsl::*;
-        let recipe = recipes
-            .select(Recipe::as_select())
-            .filter(id.eq(recipe_id))
-            .get_result(conn)
-            .unwrap();
-        let ingredients = IngredientUsage::belonging_to(&recipe)
-            .inner_join(database::schema::ingredients::table)
-            .select((IngredientUsage::as_select(), Ingredient::as_select()))
-            .order_by(ingredients::dsl::name.asc())
-            .load(conn)
-            .unwrap();
+        let (recipe, ingredients) = query::get_recipe(conn, recipe_id);
         Self {
             recipe,
             ingredients,
