@@ -18,18 +18,21 @@ use import::ImportWindow;
 use ingredient_list::IngredientListWindow;
 use recipe::RecipeWindow;
 use recipe_list::RecipeListWindow;
+use search::SearchWindow;
 use std::collections::HashMap;
 use std::mem;
 
 pub struct RecipeManager {
     category_list: CategoryListWindow,
     conn: database::Connection,
+    toasts: egui_toast::Toasts,
     import_window: Option<ImportWindow>,
     recipe_lists: HashMap<RecipeCategoryId, RecipeListWindow>,
     recipes: HashMap<RecipeId, RecipeWindow>,
     ingredient_list_window: Option<IngredientListWindow>,
     calendar_window: Option<CalendarWindow>,
-    toasts: egui_toast::Toasts,
+    search_windows: Vec<SearchWindow>,
+    next_search_window_id: u64,
 }
 
 impl RecipeManager {
@@ -42,6 +45,8 @@ impl RecipeManager {
             recipes: Default::default(),
             ingredient_list_window: None,
             calendar_window: None,
+            search_windows: Default::default(),
+            next_search_window_id: 0,
             toasts: egui_toast::Toasts::new()
                 .anchor(egui::Align2::LEFT_BOTTOM, (10.0, 10.0))
                 .direction(egui::Direction::BottomUp),
@@ -116,6 +121,12 @@ impl RecipeManager {
                         }
                         ui.close_menu();
                     }
+                    if ui.button("Search").clicked() {
+                        self.search_windows
+                            .push(SearchWindow::new(self.next_search_window_id, vec![]));
+                        self.next_search_window_id += 1;
+                        ui.close_menu();
+                    }
                 });
             });
         });
@@ -131,7 +142,12 @@ impl RecipeManager {
 
     fn update_ingredient_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.ingredient_list_window {
-            let events = window.update(&mut self.conn, &mut self.toasts, ctx);
+            let add_search_window = |query| {
+                self.search_windows
+                    .push(SearchWindow::new(self.next_search_window_id, query));
+                self.next_search_window_id += 1;
+            };
+            let events = window.update(&mut self.conn, &mut self.toasts, add_search_window, ctx);
             for e in events {
                 match e {
                     ingredient_list::UpdateEvent::Closed => self.ingredient_list_window = None,
@@ -162,6 +178,14 @@ impl RecipeManager {
             }
         }
     }
+
+    fn update_search_windows(&mut self, ctx: &egui::Context) {
+        for mut sw in mem::take(&mut self.search_windows) {
+            if !sw.update(ctx, &mut self.conn, &mut self.recipes) {
+                self.search_windows.push(sw);
+            }
+        }
+    }
 }
 
 impl eframe::App for RecipeManager {
@@ -173,6 +197,7 @@ impl eframe::App for RecipeManager {
         self.update_recipe_list_windows(ctx);
         self.update_recipes(ctx);
         self.update_calendar_window(ctx);
+        self.update_search_windows(ctx);
         self.toasts.show(ctx);
     }
 }

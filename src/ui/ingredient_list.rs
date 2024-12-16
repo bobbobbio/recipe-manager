@@ -1,6 +1,9 @@
-use super::{query, search::SearchWidget};
+use super::{
+    query,
+    search::{SearchParam, SearchWidget},
+};
 use crate::database;
-use crate::database::models::{Ingredient, IngredientId};
+use crate::database::models::{Ingredient, IngredientHandle, IngredientId};
 use diesel::ExpressionMethods as _;
 use diesel::QueryDsl as _;
 use diesel::RunQueryDsl as _;
@@ -57,6 +60,7 @@ impl IngredientListWindow {
         &mut self,
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
+        mut add_search_window: impl FnMut(Vec<SearchParam>),
         ctx: &egui::Context,
     ) -> Vec<UpdateEvent> {
         let mut open = true;
@@ -122,7 +126,9 @@ impl IngredientListWindow {
                                             refresh_self = true;
                                         } else {
                                             toasts.add(egui_toast::Toast {
-                                                text: "Couldn't delete ingredient, it is still being used by recipes".into(),
+                                                text: "Couldn't delete ingredient, \
+                                                    it is still being used by recipes"
+                                                    .into(),
                                                 kind: egui_toast::ToastKind::Error,
                                                 options: egui_toast::ToastOptions::default()
                                                     .duration_in_seconds(3.0)
@@ -131,6 +137,15 @@ impl IngredientListWindow {
                                                 ..Default::default()
                                             });
                                         }
+                                    }
+                                } else {
+                                    if ui.button("Search").clicked() {
+                                        add_search_window(vec![SearchParam::IngredientEqual(
+                                            IngredientHandle {
+                                                id: ingredient.id,
+                                                name: ingredient.name.clone(),
+                                            },
+                                        )]);
                                     }
                                 }
                                 ui.end_row();

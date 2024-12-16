@@ -28,6 +28,13 @@ pub struct Ingredient {
     pub category: Option<String>,
 }
 
+#[derive(Queryable, Selectable, Identifiable, Insertable, Clone)]
+#[diesel(table_name = crate::database::schema::ingredients)]
+pub struct IngredientHandle {
+    pub id: IngredientId,
+    pub name: String,
+}
+
 #[derive(Debug, Display, EnumIter, Hash, Copy, Clone, PartialEq, Eq, DbEnum)]
 pub enum RecipeDuration {
     #[display("short")]

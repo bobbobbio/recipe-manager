@@ -45,7 +45,8 @@ fn run(conn: database::Connection) -> Result<()> {
         "Recipe Manager",
         native_options,
         Box::new(|_cc| Ok(Box::new(ui::RecipeManager::new(conn)))),
-    ).unwrap();
+    )
+    .unwrap();
 
     Ok(())
 }
