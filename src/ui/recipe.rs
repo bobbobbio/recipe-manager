@@ -1,12 +1,12 @@
 use super::{
     calendar::{this_week, RecipeWeek},
-    query,
+    new_error_toast, query,
     search::SearchWidget,
 };
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe, RecipeDuration,
-    RecipeId,
+    Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
+    RecipeCategoryId, RecipeDuration, RecipeId,
 };
 use eframe::egui;
 
@@ -36,31 +36,48 @@ pub enum UpdateEvent {
     Closed,
     Renamed(Recipe),
     Scheduled,
+    CategoryChanged,
 }
 
 pub struct RecipeWindow {
     recipe: Recipe,
+
     ingredients: Vec<(IngredientUsage, Ingredient)>,
     ingredient_being_edited: Option<IngredientBeingEdited>,
+
     new_ingredient_name: String,
     new_ingredient: Option<Ingredient>,
-    edit_mode: bool,
     cached_ingredient_search: Option<query::CachedQuery<Ingredient>>,
+
     week: RecipeWeek,
+
+    new_category_name: String,
+    new_category: Option<RecipeCategoryId>,
+    cached_category_search: Option<query::CachedQuery<RecipeCategoryId>>,
+
+    edit_mode: bool,
 }
 
 impl RecipeWindow {
     pub fn new(conn: &mut database::Connection, recipe_id: RecipeId, edit_mode: bool) -> Self {
-        let (recipe, ingredients) = query::get_recipe(conn, recipe_id);
+        let (recipe, category_name, ingredients) = query::get_recipe(conn, recipe_id);
         Self {
             recipe,
+
             ingredients,
             ingredient_being_edited: None,
+
             new_ingredient_name: String::new(),
             new_ingredient: None,
-            edit_mode,
             cached_ingredient_search: None,
+
             week: RecipeWeek::new(conn, this_week()),
+
+            new_category_name: category_name,
+            new_category: None,
+            cached_category_search: None,
+
+            edit_mode,
         }
     }
 
@@ -126,15 +143,7 @@ impl RecipeWindow {
                                 );
                                 refresh_self = true;
                             } else {
-                                toasts.add(egui_toast::Toast {
-                                    text: "Couldn't find ingredient".into(),
-                                    kind: egui_toast::ToastKind::Error,
-                                    options: egui_toast::ToastOptions::default()
-                                        .duration_in_seconds(3.0)
-                                        .show_progress(false)
-                                        .show_icon(true),
-                                    ..Default::default()
-                                });
+                                toasts.add(new_error_toast("Couldn't find ingredient"));
                             }
                         }
                         ui.end_row();
@@ -185,15 +194,7 @@ impl RecipeWindow {
                         self.new_ingredient = None;
                         refresh_self = true;
                     } else {
-                        toasts.add(egui_toast::Toast {
-                            text: "Couldn't find ingredient".into(),
-                            kind: egui_toast::ToastKind::Error,
-                            options: egui_toast::ToastOptions::default()
-                                .duration_in_seconds(3.0)
-                                .show_progress(false)
-                                .show_icon(true),
-                            ..Default::default()
-                        });
+                        toasts.add(new_error_toast("Couldn't find ingredient"));
                     }
                 }
             });
@@ -228,6 +229,29 @@ impl RecipeWindow {
                                 query::edit_recipe_name(conn, self.recipe.id, &name);
                                 self.recipe.name = name.clone();
                                 events.push(UpdateEvent::Renamed(self.recipe.clone()));
+                            }
+                            ui.end_row();
+
+                            ui.label("Category:");
+                            ui.add(SearchWidget::new(
+                                ("recipe category", self.recipe.id),
+                                &mut self.new_category_name,
+                                &mut self.new_category,
+                                |query| {
+                                    query::search_recipe_categories(
+                                        conn,
+                                        &mut self.cached_category_search,
+                                        query,
+                                    )
+                                },
+                            ));
+                            if ui.button("Save").clicked() {
+                                if let Some(cat) = self.new_category {
+                                    query::edit_recipe_category(conn, self.recipe.id, cat);
+                                    events.push(UpdateEvent::CategoryChanged);
+                                } else {
+                                    toasts.add(new_error_toast("Couldn't find recipe category"));
+                                }
                             }
                             ui.end_row();
                         }

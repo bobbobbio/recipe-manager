@@ -1,7 +1,7 @@
 use crate::database;
 use crate::database::models::{
     Ingredient, IngredientId, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
-    RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
+    RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
 use diesel::BelongingToDsl as _;
 use diesel::BoolExpressionMethods as _;
@@ -159,6 +159,21 @@ pub fn edit_recipe_duration(
     update(recipes)
         .filter(id.eq(recipe_id))
         .set(duration.eq(new_duration))
+        .execute(conn)
+        .unwrap();
+}
+
+pub fn edit_recipe_category(
+    conn: &mut database::Connection,
+    recipe_id: RecipeId,
+    new_category_id: RecipeCategoryId,
+) {
+    use database::schema::recipes::dsl::*;
+    use diesel::update;
+
+    update(recipes)
+        .filter(id.eq(recipe_id))
+        .set(category.eq(new_category_id))
         .execute(conn)
         .unwrap();
 }
@@ -374,20 +389,50 @@ pub fn search_recipes_by_ingredient(
 pub fn get_recipe(
     conn: &mut database::Connection,
     recipe_id: RecipeId,
-) -> (Recipe, Vec<(IngredientUsage, Ingredient)>) {
-    use database::schema::ingredients;
-    use database::schema::recipes::dsl::*;
+) -> (Recipe, String, Vec<(IngredientUsage, Ingredient)>) {
+    use database::schema::{ingredients, recipe_categories, recipes};
 
-    let recipe = recipes
-        .select(Recipe::as_select())
-        .filter(id.eq(recipe_id))
+    let (recipe, category) = recipes::table
+        .inner_join(recipe_categories::table)
+        .filter(recipes::id.eq(recipe_id))
+        .select((Recipe::as_select(), recipe_categories::name))
         .get_result(conn)
         .unwrap();
     let ingredients = IngredientUsage::belonging_to(&recipe)
-        .inner_join(database::schema::ingredients::table)
+        .inner_join(ingredients::table)
         .select((IngredientUsage::as_select(), Ingredient::as_select()))
-        .order_by(ingredients::dsl::name.asc())
+        .order_by(ingredients::name.asc())
         .load(conn)
         .unwrap();
-    (recipe, ingredients)
+    (recipe, category, ingredients)
+}
+
+pub fn search_recipe_categories(
+    conn: &mut database::Connection,
+    cached_category_search: &mut Option<CachedQuery<RecipeCategoryId>>,
+    query: &str,
+) -> Vec<(RecipeCategoryId, String)> {
+    if let Some(cached) = cached_category_search.as_ref() {
+        if cached.query == query {
+            return cached.results.clone();
+        }
+    }
+
+    use database::schema::recipe_categories::dsl::*;
+    use diesel::expression_methods::TextExpressionMethods as _;
+
+    let result: Vec<_> = recipe_categories
+        .select(RecipeCategory::as_select())
+        .filter(name.like(format!("%{query}%")))
+        .load(conn)
+        .unwrap()
+        .into_iter()
+        .map(|c| (c.id, c.name))
+        .collect();
+
+    *cached_category_search = Some(CachedQuery {
+        query: query.into(),
+        results: result.clone(),
+    });
+    result
 }

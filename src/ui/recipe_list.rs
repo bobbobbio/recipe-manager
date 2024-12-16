@@ -114,4 +114,8 @@ impl RecipeListWindow {
             self.recipes[*i].name = new_name;
         }
     }
+
+    pub fn recipe_category_changed(&mut self, conn: &mut database::Connection) {
+        *self = Self::new(conn, self.recipe_category.clone());
+    }
 }
