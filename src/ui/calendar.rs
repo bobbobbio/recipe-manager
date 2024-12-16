@@ -1,4 +1,4 @@
-use super::{query, SearchWidget};
+use super::{query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{RecipeHandle, RecipeId};
 use eframe::egui;

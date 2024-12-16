@@ -1,4 +1,4 @@
-use super::{query, SearchWidget};
+use super::{query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{Ingredient, IngredientId};
 use diesel::ExpressionMethods as _;

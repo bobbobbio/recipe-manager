@@ -1,6 +1,7 @@
 use super::{
     calendar::{this_week, RecipeWeek},
-    query, SearchWidget,
+    query,
+    search::SearchWidget,
 };
 use crate::database;
 use crate::database::models::{
