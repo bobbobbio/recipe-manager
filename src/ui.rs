@@ -18,7 +18,7 @@ use import::ImportWindow;
 use ingredient_list::IngredientListWindow;
 use recipe::RecipeWindow;
 use recipe_list::RecipeListWindow;
-use search::SearchWindow;
+use search::SearchResultsWindow;
 use std::collections::HashMap;
 use std::mem;
 
@@ -31,7 +31,7 @@ pub struct RecipeManager {
     recipes: HashMap<RecipeId, RecipeWindow>,
     ingredient_list_window: Option<IngredientListWindow>,
     calendar_window: Option<CalendarWindow>,
-    search_windows: Vec<SearchWindow>,
+    search_windows: Vec<SearchResultsWindow>,
     next_search_window_id: u64,
 }
 
@@ -123,7 +123,7 @@ impl RecipeManager {
                     }
                     if ui.button("Search").clicked() {
                         self.search_windows
-                            .push(SearchWindow::new(self.next_search_window_id, vec![]));
+                            .push(SearchResultsWindow::new(self.next_search_window_id, vec![]));
                         self.next_search_window_id += 1;
                         ui.close_menu();
                     }
@@ -144,7 +144,7 @@ impl RecipeManager {
         if let Some(window) = &mut self.ingredient_list_window {
             let add_search_window = |query| {
                 self.search_windows
-                    .push(SearchWindow::new(self.next_search_window_id, query));
+                    .push(SearchResultsWindow::new(self.next_search_window_id, query));
                 self.next_search_window_id += 1;
             };
             let events = window.update(&mut self.conn, &mut self.toasts, add_search_window, ctx);

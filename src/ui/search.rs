@@ -99,13 +99,13 @@ pub enum SearchParam {
     IngredientEqual(IngredientHandle),
 }
 
-pub struct SearchWindow {
+pub struct SearchResultsWindow {
     id: u64,
     query: Vec<SearchParam>,
     results: Vec<RecipeHandle>,
 }
 
-impl SearchWindow {
+impl SearchResultsWindow {
     pub fn new(id: u64, query: Vec<SearchParam>) -> Self {
         Self {
             id,
