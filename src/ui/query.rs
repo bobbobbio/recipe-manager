@@ -4,6 +4,7 @@ use crate::database::models::{
     RecipeDuration, RecipeHandle, RecipeId,
 };
 use diesel::BoolExpressionMethods as _;
+use diesel::Connection as _;
 use diesel::ExpressionMethods as _;
 use diesel::JoinOnDsl as _;
 use diesel::QueryDsl as _;
@@ -69,23 +70,16 @@ pub fn edit_category(
 }
 
 pub fn delete_recipe(conn: &mut database::Connection, delete_id: RecipeId) {
-    {
-        use database::schema::ingredient_usages::dsl::*;
+    conn.transaction::<_, diesel::result::Error, _>(|conn| {
+        use database::schema::{ingredient_usages, recipes};
         use diesel::delete;
 
-        delete(ingredient_usages.filter(recipe_id.eq(delete_id)))
-            .execute(conn)
-            .unwrap();
-    }
-
-    {
-        use database::schema::recipes::dsl::*;
-        use diesel::delete;
-
-        delete(recipes.filter(id.eq(delete_id)))
-            .execute(conn)
-            .unwrap();
-    }
+        delete(ingredient_usages::table.filter(ingredient_usages::recipe_id.eq(delete_id)))
+            .execute(conn)?;
+        delete(recipes::table.filter(recipes::id.eq(delete_id))).execute(conn)?;
+        Ok(())
+    })
+    .unwrap();
 }
 
 pub fn add_recipe(conn: &mut database::Connection, new_name: &str, new_category: RecipeCategoryId) {
