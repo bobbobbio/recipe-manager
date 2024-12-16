@@ -194,7 +194,7 @@ impl RecipeManager {
 
     fn update_calendar_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.calendar_window {
-            let events = window.update(&mut self.conn, ctx);
+            let events = window.update(ctx, &mut self.conn, &mut self.toasts);
             for e in events {
                 match e {
                     calendar::UpdateEvent::Closed => {

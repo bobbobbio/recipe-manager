@@ -1,4 +1,4 @@
-use super::{query, search::SearchWidget};
+use super::{new_error_toast, query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{RecipeHandle, RecipeId};
 use eframe::egui;
@@ -7,6 +7,47 @@ use std::collections::HashMap;
 pub fn this_week() -> chrono::NaiveWeek {
     let today = chrono::Local::now().date_naive();
     today.week(chrono::Weekday::Sun)
+}
+
+fn full_day_name(day: chrono::Weekday) -> &'static str {
+    use chrono::Weekday::*;
+
+    match day {
+        Sun => "Sunday",
+        Mon => "Monday",
+        Tue => "Tuesday",
+        Wed => "Wednesday",
+        Thu => "Thursday",
+        Fri => "Friday",
+        Sat => "Saturday",
+    }
+}
+
+fn generate_and_open_menu(week: &RecipeWeek) -> crate::Result<()> {
+    let mut markdown = String::new();
+    markdown += "**Menu for the Week**  \n";
+    markdown += &week
+        .start
+        .first_day()
+        .format_with_items(chrono::format::StrftimeItems::new(
+            "**of the %e, %B %Y**  \n",
+        ))
+        .to_string();
+    markdown += "\n";
+    markdown += "|  | |  |\n";
+    markdown += "|:-|-|:-|\n";
+    for (day, recipe) in week.recipes() {
+        let day = full_day_name(day);
+        let recipe = recipe.map(|r| r.name).unwrap_or("No Recipe".into());
+        markdown += &format!("|{day}|&emsp;|{recipe}|\n",);
+    }
+
+    let menus_dir = crate::data_path()?.join("menus");
+    std::fs::create_dir_all(&menus_dir)?;
+    let menu_path = menus_dir.join(format!("menu-{}.md", week.start.first_day()));
+    std::fs::write(&menu_path, markdown)?;
+    open::that(menu_path)?;
+    Ok(())
 }
 
 pub struct RecipeWeek {
@@ -141,8 +182,9 @@ impl CalendarWindow {
 
     pub fn update(
         &mut self,
-        conn: &mut database::Connection,
         ctx: &egui::Context,
+        conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
     ) -> Vec<UpdateEvent> {
         let mut events = vec![];
         let mut open = true;
@@ -157,7 +199,7 @@ impl CalendarWindow {
                     ui.end_row();
 
                     for (day, recipe) in self.week.recipes() {
-                        ui.label(day.to_string());
+                        ui.label(full_day_name(day));
                         if let Some(recipe) = recipe {
                             ui.label(recipe.name.clone());
                             if self.edit_mode && ui.button("Clear").clicked() {
@@ -205,6 +247,11 @@ impl CalendarWindow {
                     if ui.button("Previous").clicked() {
                         self.week.previous(conn);
                         self.recipes_being_selected.clear();
+                    }
+                    if ui.button("Menu").clicked() {
+                        if let Err(error) = generate_and_open_menu(&self.week) {
+                            toasts.add(new_error_toast(format!("Error generating menu: {error}")));
+                        }
                     }
                 });
             });
