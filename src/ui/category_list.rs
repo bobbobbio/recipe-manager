@@ -42,8 +42,6 @@ impl CategoryListWindow {
         recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
     ) {
         let mut refresh_self = false;
-        let mut categories_to_delete = vec![];
-        let mut add_category = false;
         egui::Window::new("Categories").show(ctx, |ui| {
             let scroll_height = ui.available_height() - 35.0;
             egui::ScrollArea::vertical()
@@ -77,7 +75,20 @@ impl CategoryListWindow {
                                     });
                                 }
                                 if ui.button("Delete").clicked() {
-                                    categories_to_delete.push(*cat_id);
+                                    if query::delete_category(conn, *cat_id) {
+                                        refresh_self = true;
+                                        recipe_list_windows.remove(cat_id);
+                                    } else {
+                                        toasts.add(egui_toast::Toast {
+                                            text: "Couldn't delete category, it still contains recipes".into(),
+                                            kind: egui_toast::ToastKind::Error,
+                                            options: egui_toast::ToastOptions::default()
+                                                .duration_in_seconds(3.0)
+                                                .show_progress(false)
+                                                .show_icon(true),
+                                            ..Default::default()
+                                        });
+                                    }
                                 }
                             }
                             ui.end_row();
@@ -103,32 +114,14 @@ impl CategoryListWindow {
                         egui::TextEdit::singleline(&mut self.new_category_name)
                             .desired_width(ui.available_width() - 100.0),
                     );
-                    add_category = ui.button("Add").clicked();
+                    if ui.button("Add").clicked() {
+                        query::add_category(conn, &self.new_category_name);
+                        self.new_category_name = "".into();
+                        refresh_self = true;
+                    }
                 }
             });
         });
-
-        if add_category {
-            query::add_category(conn, &self.new_category_name);
-            self.new_category_name = "".into();
-            refresh_self = true;
-        }
-        for cat in categories_to_delete {
-            if query::delete_category(conn, cat) {
-                refresh_self = true;
-                recipe_list_windows.remove(&cat);
-            } else {
-                toasts.add(egui_toast::Toast {
-                    text: "Couldn't delete category, it still contains recipes".into(),
-                    kind: egui_toast::ToastKind::Error,
-                    options: egui_toast::ToastOptions::default()
-                        .duration_in_seconds(3.0)
-                        .show_progress(false)
-                        .show_icon(true),
-                    ..Default::default()
-                });
-            }
-        }
 
         if refresh_self {
             *self = Self::new(conn);
