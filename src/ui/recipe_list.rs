@@ -68,7 +68,7 @@ impl RecipeListWindow {
                                     if ui.button("Delete").clicked() {
                                         query::delete_recipe(conn, *id);
                                         refresh_self = true;
-                                        recipe_windows.remove(id);
+                                        shown = false;
                                     }
                                 }
                                 ui.end_row();

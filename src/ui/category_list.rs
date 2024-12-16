@@ -77,7 +77,7 @@ impl CategoryListWindow {
                                 if ui.button("Delete").clicked() {
                                     if query::delete_category(conn, *cat_id) {
                                         refresh_self = true;
-                                        recipe_list_windows.remove(cat_id);
+                                        shown = false;
                                     } else {
                                         toasts.add(egui_toast::Toast {
                                             text: "Couldn't delete category, it still contains recipes".into(),
