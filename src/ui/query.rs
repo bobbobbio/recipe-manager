@@ -82,12 +82,23 @@ pub fn edit_category(
 }
 
 pub fn delete_recipe(conn: &mut database::Connection, delete_id: RecipeId) {
-    use database::schema::recipes::dsl::*;
-    use diesel::delete;
+    {
+        use database::schema::ingredient_usages::dsl::*;
+        use diesel::delete;
 
-    delete(recipes.filter(id.eq(delete_id)))
-        .execute(conn)
-        .unwrap();
+        delete(ingredient_usages.filter(recipe_id.eq(delete_id)))
+            .execute(conn)
+            .unwrap();
+    }
+
+    {
+        use database::schema::recipes::dsl::*;
+        use diesel::delete;
+
+        delete(recipes.filter(id.eq(delete_id)))
+            .execute(conn)
+            .unwrap();
+    }
 }
 
 pub fn add_recipe(conn: &mut database::Connection, new_name: &str, new_category: RecipeCategoryId) {
