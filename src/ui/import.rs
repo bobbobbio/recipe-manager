@@ -131,10 +131,15 @@ impl ImportWindow {
     fn update_success(num_imported: usize, log: &str, ui: &mut egui::Ui) -> Option<Self> {
         ui.label(format!("import succeeded. {num_imported} items imported."));
         if !log.is_empty() {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.label(log);
-            });
+            let scroll_height = ui.available_height() - 35.0;
+            egui::ScrollArea::vertical()
+                .auto_shrink(false)
+                .max_height(scroll_height)
+                .show(ui, |ui| {
+                    ui.label(log);
+                });
         }
+        ui.separator();
         ui.button("okay").clicked().then_some(Self::Ready)
     }
 }
