@@ -13,7 +13,7 @@ type Result<T> = std::result::Result<T, Error>;
 /// `~/.local/share/recipe_manager/`
 fn data_path() -> Result<PathBuf> {
     let dirs = directories::BaseDirs::new().expect("failed to get user home directory");
-    let path = dirs.data_dir().join("recipe_manager");
+    let path = dirs.data_dir().join("recipe-manager");
     std::fs::create_dir_all(&path)?;
     Ok(path)
 }
