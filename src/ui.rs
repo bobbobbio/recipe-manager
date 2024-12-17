@@ -2,6 +2,7 @@
 
 mod calendar;
 mod category_list;
+mod generate_rtf;
 mod import;
 mod ingredient_list;
 mod query;
