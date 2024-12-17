@@ -115,7 +115,7 @@ impl RecipeManager {
                     }
                     recipe::UpdateEvent::Scheduled => {
                         if let Some(c) = self.calendar_window.as_mut() {
-                            c.refresh(&mut self.conn);
+                            c.recipe_scheduled(&mut self.conn);
                         }
                     }
                     recipe::UpdateEvent::CategoryChanged => {
@@ -162,8 +162,19 @@ impl RecipeManager {
 
     fn update_import_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.import_window {
-            if window.update(&mut self.conn, ctx) {
-                self.import_window = None;
+            let events = window.update(&mut self.conn, ctx);
+            for e in events {
+                match e {
+                    import::UpdateEvent::Closed => {
+                        self.import_window = None;
+                    }
+                    import::UpdateEvent::Imported => {
+                        self.category_list.recipes_imported(&mut self.conn);
+                        if let Some(c) = &mut self.calendar_window {
+                            c.calendar_imported(&mut self.conn);
+                        }
+                    }
+                }
             }
         }
     }

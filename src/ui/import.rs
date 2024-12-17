@@ -23,8 +23,18 @@ pub enum ImportWindow {
     },
 }
 
+pub enum UpdateEvent {
+    Closed,
+    Imported,
+}
+
 impl ImportWindow {
-    pub fn update(&mut self, conn: &mut database::Connection, ctx: &egui::Context) -> bool {
+    pub fn update(
+        &mut self,
+        conn: &mut database::Connection,
+        ctx: &egui::Context,
+    ) -> Vec<UpdateEvent> {
+        let mut events = vec![];
         let mut open = true;
         egui::Window::new("Import data")
             .open(&mut open)
@@ -33,11 +43,11 @@ impl ImportWindow {
                     Self::Ready => Self::update_ready(conn, ui),
                     Self::ImportingRecipes { log, importer } => {
                         ctx.request_repaint_after(std::time::Duration::from_millis(0));
-                        Self::update_importing(conn, log, importer, ui)
+                        Self::update_importing(conn, log, importer, &mut events, ui)
                     }
                     Self::ImportingCalendar { log, importer } => {
                         ctx.request_repaint_after(std::time::Duration::from_millis(0));
-                        Self::update_importing(conn, log, importer, ui)
+                        Self::update_importing(conn, log, importer, &mut events, ui)
                     }
                     Self::Failed { error } => Self::update_failed(error, ui),
                     Self::Success { num_imported, log } => {
@@ -48,7 +58,10 @@ impl ImportWindow {
                     *self = next;
                 }
             });
-        !open
+        if !open {
+            events.push(UpdateEvent::Closed);
+        }
+        events
     }
 
     fn update_ready(conn: &mut database::Connection, ui: &mut egui::Ui) -> Option<Self> {
@@ -89,6 +102,7 @@ impl ImportWindow {
         conn: &mut database::Connection,
         log: &mut String,
         importer: &mut impl import::Importer,
+        events: &mut Vec<UpdateEvent>,
         ui: &mut egui::Ui,
     ) -> Option<Self> {
         ui.label("importing data..");
@@ -99,6 +113,7 @@ impl ImportWindow {
                 return Some(Self::Failed { error });
             }
         } else {
+            events.push(UpdateEvent::Imported);
             return Some(Self::Success {
                 num_imported: importer.num_imported(),
                 log: std::mem::take(log),

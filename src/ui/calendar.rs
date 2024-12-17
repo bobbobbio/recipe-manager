@@ -1,8 +1,6 @@
 use super::{generate_rtf, new_error_toast, query, search::SearchWidget};
 use crate::database;
-use crate::database::models::{
-    RecipeHandle, RecipeId,
-};
+use crate::database::models::{RecipeHandle, RecipeId};
 use eframe::egui;
 use std::collections::HashMap;
 
@@ -151,10 +149,6 @@ impl CalendarWindow {
         }
     }
 
-    pub fn refresh(&mut self, conn: &mut database::Connection) {
-        self.week.refresh(conn);
-    }
-
     pub fn update(
         &mut self,
         ctx: &egui::Context,
@@ -252,5 +246,13 @@ impl CalendarWindow {
             events.push(UpdateEvent::Closed);
         }
         events
+    }
+
+    pub fn recipe_scheduled(&mut self, conn: &mut database::Connection) {
+        self.week.refresh(conn);
+    }
+
+    pub fn calendar_imported(&mut self, conn: &mut database::Connection) {
+        self.week.refresh(conn);
     }
 }

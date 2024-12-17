@@ -127,4 +127,8 @@ impl CategoryListWindow {
             *self = Self::new(conn);
         }
     }
+
+    pub fn recipes_imported(&mut self, conn: &mut database::Connection) {
+        *self = Self::new(conn);
+    }
 }
