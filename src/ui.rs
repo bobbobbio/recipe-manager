@@ -28,7 +28,7 @@ pub fn new_error_toast(msg: impl Into<egui::WidgetText>) -> egui_toast::Toast {
         text: msg.into(),
         kind: egui_toast::ToastKind::Error,
         options: egui_toast::ToastOptions::default()
-            .duration_in_seconds(3.0)
+            .duration_in_seconds(10.0)
             .show_progress(false)
             .show_icon(true),
         ..Default::default()
