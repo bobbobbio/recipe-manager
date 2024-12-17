@@ -179,10 +179,41 @@ pub struct RecipeImporter {
 }
 
 impl RecipeImporter {
-    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn new(conn: &mut database::Connection, path: impl AsRef<Path>) -> Result<Self> {
         let recipe_boxes = plist::decode_recipes_from_path(path)?;
 
         let total_num_recipes = recipe_boxes.iter().map(|b| b.recipes.len()).sum();
+
+        use database::schema::{ingredient_usages, ingredients, recipe_categories, recipes};
+        use diesel::dsl::max;
+
+        let recipe_category_id_vendor = recipe_categories::table
+            .select(max(recipe_categories::id))
+            .first::<Option<RecipeCategoryId>>(conn)
+            .unwrap()
+            .map(|v| v.next())
+            .unwrap_or(RecipeCategoryId::INITIAL);
+
+        let recipe_id_vendor = recipes::table
+            .select(max(recipes::id))
+            .first::<Option<RecipeId>>(conn)
+            .unwrap()
+            .map(|v| v.next())
+            .unwrap_or(RecipeId::INITIAL);
+
+        let ingredient_usage_id_vendor = ingredient_usages::table
+            .select(max(ingredient_usages::id))
+            .first::<Option<IngredientUsageId>>(conn)
+            .unwrap()
+            .map(|v| v.next())
+            .unwrap_or(IngredientUsageId::INITIAL);
+
+        let ingredient_id_vendor = ingredients::table
+            .select(max(ingredients::id))
+            .first::<Option<IngredientId>>(conn)
+            .unwrap()
+            .map(|v| v.next())
+            .unwrap_or(IngredientId::INITIAL);
 
         Ok(Self {
             recipe_boxes,
@@ -191,10 +222,10 @@ impl RecipeImporter {
             num_imported: 0,
             total_num_recipes,
 
-            recipe_category_id_vendor: RecipeCategoryId::INITIAL,
-            recipe_id_vendor: RecipeId::INITIAL,
-            ingredient_usage_id_vendor: IngredientUsageId::INITIAL,
-            ingredient_id_vendor: IngredientId::INITIAL,
+            recipe_category_id_vendor,
+            recipe_id_vendor,
+            ingredient_usage_id_vendor,
+            ingredient_id_vendor,
         })
     }
 }
@@ -250,7 +281,7 @@ impl Importer for RecipeImporter {
 }
 
 pub fn import_recipes(mut conn: database::Connection, path: impl AsRef<Path>) -> Result<()> {
-    let mut importer = RecipeImporter::new(path)?;
+    let mut importer = RecipeImporter::new(&mut conn, path)?;
 
     while !importer.done() {
         importer.import_one(&mut conn)?;

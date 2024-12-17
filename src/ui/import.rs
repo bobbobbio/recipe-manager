@@ -27,7 +27,7 @@ impl ImportWindow {
             .open(&mut open)
             .show(ctx, |ui| {
                 let next = match self {
-                    Self::Ready => Self::update_ready(ui),
+                    Self::Ready => Self::update_ready(conn, ui),
                     Self::ImportingRecipes { importer } => {
                         ctx.request_repaint_after(std::time::Duration::from_millis(0));
                         Self::update_importing(conn, importer, ui)
@@ -46,14 +46,14 @@ impl ImportWindow {
         !open
     }
 
-    fn update_ready(ui: &mut egui::Ui) -> Option<Self> {
+    fn update_ready(conn: &mut database::Connection, ui: &mut egui::Ui) -> Option<Self> {
         if ui.button("import recipes").clicked() {
             if let Some(file) = rfd::FileDialog::new()
                 .add_filter("recipebook", &["recipebook"])
                 .set_directory("/")
                 .pick_file()
             {
-                return Some(match import::RecipeImporter::new(file) {
+                return Some(match import::RecipeImporter::new(conn, file) {
                     Ok(importer) => Self::ImportingRecipes { importer },
                     Err(error) => Self::Failed { error },
                 });
