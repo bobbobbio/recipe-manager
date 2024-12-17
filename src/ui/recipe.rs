@@ -35,7 +35,7 @@ impl IngredientBeingEdited {
 pub enum UpdateEvent {
     Closed,
     Renamed(Recipe),
-    Scheduled,
+    Scheduled(chrono::NaiveWeek),
     CategoryChanged,
 }
 
@@ -304,7 +304,7 @@ impl RecipeWindow {
                             if ui.button(format!("{day}: {recipe}")).clicked() {
                                 self.week.schedule(conn, day, self.recipe.id);
                                 ui.close_menu();
-                                events.push(UpdateEvent::Scheduled);
+                                events.push(UpdateEvent::Scheduled(*self.week.week()));
                             }
                         }
                     });

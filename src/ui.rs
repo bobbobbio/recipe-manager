@@ -102,6 +102,7 @@ impl RecipeManager {
     }
 
     fn update_recipes(&mut self, ctx: &egui::Context) {
+        let mut recipe_scheduled = vec![];
         for (id, mut recipe) in mem::take(&mut self.recipes) {
             let mut closed = false;
             let events = recipe.update(ctx, &mut self.conn, &mut self.toasts);
@@ -113,10 +114,8 @@ impl RecipeManager {
                             list.recipe_name_changed(recipe.id, recipe.name);
                         }
                     }
-                    recipe::UpdateEvent::Scheduled => {
-                        if let Some(c) = self.calendar_window.as_mut() {
-                            c.recipe_scheduled(&mut self.conn);
-                        }
+                    recipe::UpdateEvent::Scheduled(week) => {
+                        recipe_scheduled.push(week);
                     }
                     recipe::UpdateEvent::CategoryChanged => {
                         for r in self.recipe_lists.values_mut() {
@@ -128,6 +127,15 @@ impl RecipeManager {
 
             if !closed {
                 self.recipes.insert(id, recipe);
+            }
+        }
+
+        for week in recipe_scheduled {
+            if let Some(c) = self.calendar_window.as_mut() {
+                c.recipe_scheduled(&mut self.conn);
+            }
+            for recipe in self.recipes.values_mut() {
+                recipe.recipe_scheduled(&mut self.conn, week);
             }
         }
     }
