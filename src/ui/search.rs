@@ -131,20 +131,28 @@ impl SearchResultsWindow {
                 ui.vertical(|ui| {
                     ui.label(&self.query);
 
-                    for recipe in &self.results {
-                        let mut shown = recipe_windows.contains_key(&recipe.id);
-                        ui.toggle_value(&mut shown, recipe.name.clone());
+                    let scroll_height = ui.available_height() - 45.0;
+                    egui::ScrollArea::vertical()
+                        .auto_shrink(false)
+                        .max_height(scroll_height)
+                        .show(ui, |ui| {
+                            for recipe in &self.results {
+                                let mut shown = recipe_windows.contains_key(&recipe.id);
+                                ui.toggle_value(&mut shown, recipe.name.clone());
 
-                        if shown && !recipe_windows.contains_key(&recipe.id) {
-                            recipe_windows
-                                .insert(recipe.id, RecipeWindow::new(conn, recipe.id, false));
-                        } else if !shown {
-                            recipe_windows.remove(&recipe.id);
-                        }
-                    }
-                    if self.results.is_empty() {
-                        ui.label("Nothing found");
-                    }
+                                if shown && !recipe_windows.contains_key(&recipe.id) {
+                                    recipe_windows.insert(
+                                        recipe.id,
+                                        RecipeWindow::new(conn, recipe.id, false),
+                                    );
+                                } else if !shown {
+                                    recipe_windows.remove(&recipe.id);
+                                }
+                            }
+                            if self.results.is_empty() {
+                                ui.label("Nothing found");
+                            }
+                        });
                 });
             });
         !open
