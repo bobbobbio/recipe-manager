@@ -31,8 +31,14 @@ CREATE TABLE ingredient_usages (
     quantity_units TEXT CHECK ( quantity_units IN (
         'cups',
         'fluid_ounces',
-        'pounds',
+        'grams',
+        'kilograms',
+        'kiloliters',
+        'liters',
+        'milligrams',
+        'milliliters',
         'ounces',
+        'pounds',
         'tablespoons',
         'teaspoons'
     ) ),

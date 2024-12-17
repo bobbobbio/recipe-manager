@@ -104,8 +104,14 @@ pub struct RecipeHandle {
 pub enum IngredientMeasurement {
     Cups,
     FluidOunces,
-    Pounds,
+    Grams,
+    Kilograms,
+    Kiloliters,
+    Liters,
+    Milligrams,
+    Milliliters,
     Ounces,
+    Pounds,
     Tablespoons,
     Teaspoons,
 }
@@ -115,8 +121,14 @@ impl IngredientMeasurement {
         match self {
             Self::Cups => "cups",
             Self::FluidOunces => "fl. oz.",
-            Self::Pounds => "lbs.",
+            Self::Grams => "g",
+            Self::Kilograms => "kg",
+            Self::Kiloliters => "kL",
+            Self::Liters => "L",
+            Self::Milligrams => "mg",
+            Self::Milliliters => "mL",
             Self::Ounces => "oz.",
+            Self::Pounds => "lbs.",
             Self::Tablespoons => "tbsp.",
             Self::Teaspoons => "tsp.",
         }
