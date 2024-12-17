@@ -131,6 +131,9 @@ impl SearchResultsWindow {
                             recipe_windows.remove(&recipe.id);
                         }
                     }
+                    if self.results.is_empty() {
+                        ui.label("Nothing found");
+                    }
                 });
             });
         !open
