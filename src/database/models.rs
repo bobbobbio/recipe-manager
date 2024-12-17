@@ -9,7 +9,7 @@ use diesel_derive_enum::DbEnum;
 use diesel_derive_newtype::DieselNewType;
 use strum::EnumIter;
 
-#[derive(DieselNewType, Debug, Hash, PartialEq, Eq, Copy, Clone)]
+#[derive(DieselNewType, Debug, Hash, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
 pub struct IngredientId(i32);
 
 impl IngredientId {
@@ -100,7 +100,7 @@ pub struct RecipeHandle {
     pub name: String,
 }
 
-#[derive(Debug, Hash, Copy, Clone, PartialEq, Eq, EnumIter, DbEnum)]
+#[derive(Debug, Hash, Copy, Clone, PartialEq, Eq, EnumIter, DbEnum, PartialOrd, Ord)]
 pub enum IngredientMeasurement {
     Cups,
     FluidOunces,

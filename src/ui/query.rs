@@ -3,7 +3,6 @@ use crate::database::models::{
     Ingredient, IngredientId, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
     RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
 };
-use diesel::BelongingToDsl as _;
 use diesel::BoolExpressionMethods as _;
 use diesel::Connection as _;
 use diesel::ExpressionMethods as _;
@@ -386,11 +385,26 @@ pub fn search_recipes_by_ingredient(
         .unwrap()
 }
 
+pub fn get_ingredients_for_recipe(
+    conn: &mut database::Connection,
+    get_recipe_id: RecipeId,
+) -> Vec<(IngredientUsage, Ingredient)> {
+    use database::schema::{ingredient_usages, ingredients};
+
+    ingredient_usages::table
+        .filter(ingredient_usages::recipe_id.eq(get_recipe_id))
+        .inner_join(ingredients::table)
+        .select((IngredientUsage::as_select(), Ingredient::as_select()))
+        .order_by(ingredients::name.asc())
+        .load(conn)
+        .unwrap()
+}
+
 pub fn get_recipe(
     conn: &mut database::Connection,
     recipe_id: RecipeId,
 ) -> (Recipe, String, Vec<(IngredientUsage, Ingredient)>) {
-    use database::schema::{ingredients, recipe_categories, recipes};
+    use database::schema::{recipe_categories, recipes};
 
     let (recipe, category) = recipes::table
         .inner_join(recipe_categories::table)
@@ -398,12 +412,7 @@ pub fn get_recipe(
         .select((Recipe::as_select(), recipe_categories::name))
         .get_result(conn)
         .unwrap();
-    let ingredients = IngredientUsage::belonging_to(&recipe)
-        .inner_join(ingredients::table)
-        .select((IngredientUsage::as_select(), Ingredient::as_select()))
-        .order_by(ingredients::name.asc())
-        .load(conn)
-        .unwrap();
+    let ingredients = get_ingredients_for_recipe(conn, recipe_id);
     (recipe, category, ingredients)
 }
 
