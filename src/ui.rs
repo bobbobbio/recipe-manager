@@ -240,6 +240,10 @@ impl RecipeManager {
 }
 
 impl eframe::App for RecipeManager {
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        egui::Color32::from_rgba_unmultiplied(12, 12, 12, 255).to_normalized_gamma_f32()
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_menu(ctx);
         self.update_import_window(ctx);

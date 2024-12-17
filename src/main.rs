@@ -22,6 +22,7 @@ fn run(conn: database::Connection) -> Result<()> {
     let native_options = eframe::NativeOptions {
         window_builder: Some(Box::new(|mut b: egui::viewport::ViewportBuilder| {
             b.maximized = Some(true);
+            b.transparent = Some(false);
             b
         })),
         ..Default::default()
