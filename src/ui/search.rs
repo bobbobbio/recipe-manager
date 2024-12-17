@@ -12,6 +12,7 @@ pub struct SearchWidget<'a, SearchFn, ValueT> {
     value: &'a mut Option<ValueT>,
     search_fn: SearchFn,
     pop_up_id: egui::Id,
+    hint_text: Option<egui::WidgetText>,
 }
 
 impl<'a, SearchFn, ValueT> SearchWidget<'a, SearchFn, ValueT>
@@ -29,7 +30,13 @@ where
             value,
             search_fn,
             pop_up_id: egui::Id::new(id_source),
+            hint_text: None,
         }
+    }
+
+    pub fn hint_text(mut self, hint_text: impl Into<egui::WidgetText>) -> Self {
+        self.hint_text = Some(hint_text.into());
+        self
     }
 }
 
@@ -44,9 +51,13 @@ where
             buf,
             value,
             search_fn,
+            hint_text,
         } = self;
 
-        let edit = egui::TextEdit::singleline(buf);
+        let mut edit = egui::TextEdit::singleline(buf);
+        if let Some(hint_text) = hint_text {
+            edit = edit.hint_text(hint_text);
+        }
         let edit_output = edit.show(ui);
         let mut r = edit_output.response;
         if r.gained_focus() {
@@ -179,18 +190,21 @@ impl RecipeSearchWindow {
                     }
                 });
                 ui.horizontal(|ui| {
-                    ui.add(SearchWidget::new(
-                        "recipe search ingredient name",
-                        &mut self.new_ingredient_name,
-                        &mut self.new_ingredient,
-                        |query| {
-                            query::search_ingredients(
-                                conn,
-                                &mut self.cached_ingredient_search,
-                                query,
-                            )
-                        },
-                    ));
+                    ui.add(
+                        SearchWidget::new(
+                            "recipe search ingredient name",
+                            &mut self.new_ingredient_name,
+                            &mut self.new_ingredient,
+                            |query| {
+                                query::search_ingredients(
+                                    conn,
+                                    &mut self.cached_ingredient_search,
+                                    query,
+                                )
+                            },
+                        )
+                        .hint_text("search for ingredient"),
+                    );
                     if ui.button("Add").clicked() {
                         if let Some(ingredient) = &self.new_ingredient {
                             self.to_search.push(ingredient.to_handle());

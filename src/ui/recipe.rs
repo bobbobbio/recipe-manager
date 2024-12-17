@@ -178,14 +178,21 @@ impl RecipeWindow {
         if self.edit_mode {
             ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                 ui.label("Add Ingredient:");
-                ui.add(SearchWidget::new(
-                    "ingredient",
-                    &mut self.new_ingredient_name,
-                    &mut self.new_ingredient,
-                    |query| {
-                        query::search_ingredients(conn, &mut self.cached_ingredient_search, query)
-                    },
-                ));
+                ui.add(
+                    SearchWidget::new(
+                        "ingredient",
+                        &mut self.new_ingredient_name,
+                        &mut self.new_ingredient,
+                        |query| {
+                            query::search_ingredients(
+                                conn,
+                                &mut self.cached_ingredient_search,
+                                query,
+                            )
+                        },
+                    )
+                    .hint_text("search for ingredient"),
+                );
 
                 if ui.button("Add").clicked() {
                     if let Some(ingredient) = &self.new_ingredient {
@@ -231,18 +238,21 @@ impl RecipeWindow {
                         ui.end_row();
 
                         ui.label("Category:");
-                        ui.add(SearchWidget::new(
-                            ("recipe category", self.recipe.id),
-                            &mut self.new_category_name,
-                            &mut self.new_category,
-                            |query| {
-                                query::search_recipe_categories(
-                                    conn,
-                                    &mut self.cached_category_search,
-                                    query,
-                                )
-                            },
-                        ));
+                        ui.add(
+                            SearchWidget::new(
+                                ("recipe category", self.recipe.id),
+                                &mut self.new_category_name,
+                                &mut self.new_category,
+                                |query| {
+                                    query::search_recipe_categories(
+                                        conn,
+                                        &mut self.cached_category_search,
+                                        query,
+                                    )
+                                },
+                            )
+                            .hint_text("search for category"),
+                        );
                         if ui.button("Save").clicked() {
                             if let Some(cat) = self.new_category {
                                 query::edit_recipe_category(conn, self.recipe.id, cat);

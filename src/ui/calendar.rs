@@ -192,7 +192,8 @@ impl CalendarWindow {
                                                 query,
                                             )
                                         },
-                                    ),
+                                    )
+                                    .hint_text("search for recipe"),
                                 );
                                 if ui.button("Select").clicked() && e.recipe_id.is_some() {
                                     self.week.schedule(conn, day, e.recipe_id.unwrap());

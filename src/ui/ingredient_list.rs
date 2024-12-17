@@ -81,18 +81,21 @@ impl IngredientListWindow {
                                     if i.id == ingredient.id {
                                         ui.add(egui::TextEdit::singleline(&mut i.name));
                                         let mut unused = None;
-                                        ui.add(SearchWidget::new(
-                                            i.id,
-                                            &mut i.category,
-                                            &mut unused,
-                                            |query| {
-                                                query::search_ingredient_categories(
-                                                    conn,
-                                                    &mut i.cached_category_search,
-                                                    query,
-                                                )
-                                            },
-                                        ));
+                                        ui.add(
+                                            SearchWidget::new(
+                                                i.id,
+                                                &mut i.category,
+                                                &mut unused,
+                                                |query| {
+                                                    query::search_ingredient_categories(
+                                                        conn,
+                                                        &mut i.cached_category_search,
+                                                        query,
+                                                    )
+                                                },
+                                            )
+                                            .hint_text("search for category"),
+                                        );
                                         if ui.button("Save").clicked() {
                                             query::update_ingredient(
                                                 conn,
