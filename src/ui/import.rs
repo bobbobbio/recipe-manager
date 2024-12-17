@@ -8,15 +8,18 @@ pub enum ImportWindow {
     Ready,
     ImportingRecipes {
         importer: crate::import::RecipeImporter,
+        log: String,
     },
     ImportingCalendar {
         importer: crate::import::CalendarImporter,
+        log: String,
     },
     Failed {
         error: crate::Error,
     },
     Success {
         num_imported: usize,
+        log: String,
     },
 }
 
@@ -28,16 +31,18 @@ impl ImportWindow {
             .show(ctx, |ui| {
                 let next = match self {
                     Self::Ready => Self::update_ready(conn, ui),
-                    Self::ImportingRecipes { importer } => {
+                    Self::ImportingRecipes { log, importer } => {
                         ctx.request_repaint_after(std::time::Duration::from_millis(0));
-                        Self::update_importing(conn, importer, ui)
+                        Self::update_importing(conn, log, importer, ui)
                     }
-                    Self::ImportingCalendar { importer } => {
+                    Self::ImportingCalendar { log, importer } => {
                         ctx.request_repaint_after(std::time::Duration::from_millis(0));
-                        Self::update_importing(conn, importer, ui)
+                        Self::update_importing(conn, log, importer, ui)
                     }
                     Self::Failed { error } => Self::update_failed(error, ui),
-                    Self::Success { num_imported } => Self::update_success(*num_imported, ui),
+                    Self::Success { num_imported, log } => {
+                        Self::update_success(*num_imported, log, ui)
+                    }
                 };
                 if let Some(next) = next {
                     *self = next;
@@ -54,7 +59,10 @@ impl ImportWindow {
                 .pick_file()
             {
                 return Some(match import::RecipeImporter::new(conn, file) {
-                    Ok(importer) => Self::ImportingRecipes { importer },
+                    Ok(importer) => Self::ImportingRecipes {
+                        importer,
+                        log: String::new(),
+                    },
                     Err(error) => Self::Failed { error },
                 });
             }
@@ -66,7 +74,10 @@ impl ImportWindow {
                 .pick_file()
             {
                 return Some(match import::CalendarImporter::new(file) {
-                    Ok(importer) => Self::ImportingCalendar { importer },
+                    Ok(importer) => Self::ImportingCalendar {
+                        importer,
+                        log: String::new(),
+                    },
                     Err(error) => Self::Failed { error },
                 });
             }
@@ -76,6 +87,7 @@ impl ImportWindow {
 
     fn update_importing(
         conn: &mut database::Connection,
+        log: &mut String,
         importer: &mut impl import::Importer,
         ui: &mut egui::Ui,
     ) -> Option<Self> {
@@ -83,12 +95,13 @@ impl ImportWindow {
         ui.add(egui::widgets::ProgressBar::new(importer.percent_done()));
 
         if !importer.done() {
-            if let Err(error) = importer.import_one(conn) {
+            if let Err(error) = importer.import_one(conn, log) {
                 return Some(Self::Failed { error });
             }
         } else {
             return Some(Self::Success {
                 num_imported: importer.num_imported(),
+                log: std::mem::take(log),
             });
         }
 
@@ -100,10 +113,13 @@ impl ImportWindow {
         ui.button("okay").clicked().then_some(Self::Ready)
     }
 
-    fn update_success(num_imported: usize, ui: &mut egui::Ui) -> Option<Self> {
-        ui.label(format!(
-            "import succeeded. {num_imported} recipes imported."
-        ));
+    fn update_success(num_imported: usize, log: &str, ui: &mut egui::Ui) -> Option<Self> {
+        ui.label(format!("import succeeded. {num_imported} items imported."));
+        if !log.is_empty() {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.label(log);
+            });
+        }
         ui.button("okay").clicked().then_some(Self::Ready)
     }
 }

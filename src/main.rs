@@ -1,7 +1,5 @@
 // Copyright 2023 Remi Bernotavicius
 
-use clap::Parser;
-use clap::Subcommand;
 use std::path::PathBuf;
 
 mod database;
@@ -10,19 +8,6 @@ mod ui;
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Parser, Debug)]
-struct Args {
-    #[command(subcommand)]
-    commands: Commands,
-}
-
-#[derive(Debug, Subcommand)]
-enum Commands {
-    ImportRecipes { path: PathBuf },
-    ImportCalendar { path: PathBuf },
-    Run,
-}
 
 /// This is where the database and other user-data lives on-disk. On Linux it should be like:
 /// `~/.local/share/recipe_manager/`
@@ -52,12 +37,7 @@ fn run(conn: database::Connection) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
     let conn = database::establish_connection(data_path()?.join("data.sqlite"))?;
-    match args.commands {
-        Commands::ImportRecipes { path } => import::import_recipes(conn, path)?,
-        Commands::ImportCalendar { path } => import::import_calendar(conn, path)?,
-        Commands::Run => run(conn)?,
-    }
+    run(conn)?;
     Ok(())
 }

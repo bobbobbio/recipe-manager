@@ -11,6 +11,7 @@ use diesel::ExpressionMethods as _;
 use diesel::QueryDsl as _;
 use diesel::RunQueryDsl as _;
 use diesel::SelectableHelper as _;
+use std::fmt::Write as _;
 use std::mem;
 use std::path::Path;
 
@@ -159,7 +160,7 @@ fn import_recipe_category(
 }
 
 pub trait Importer {
-    fn import_one(&mut self, conn: &mut database::Connection) -> Result<()>;
+    fn import_one(&mut self, conn: &mut database::Connection, log: &mut String) -> Result<()>;
     fn percent_done(&self) -> f32;
     fn done(&self) -> bool;
     fn num_imported(&self) -> usize;
@@ -243,7 +244,7 @@ impl Importer for RecipeImporter {
         self.num_imported as f32 / self.total_num_recipes as f32
     }
 
-    fn import_one(&mut self, conn: &mut database::Connection) -> Result<()> {
+    fn import_one(&mut self, conn: &mut database::Connection, _: &mut String) -> Result<()> {
         assert!(!self.done());
 
         if self.working_recipe_box.is_none() {
@@ -278,17 +279,6 @@ impl Importer for RecipeImporter {
 
         Ok(())
     }
-}
-
-pub fn import_recipes(mut conn: database::Connection, path: impl AsRef<Path>) -> Result<()> {
-    let mut importer = RecipeImporter::new(&mut conn, path)?;
-
-    while !importer.done() {
-        importer.import_one(&mut conn)?;
-        println!("imported {}%", importer.percent_done() * 100.0);
-    }
-
-    Ok(())
 }
 
 fn find_recipes(conn: &mut database::Connection, search_name: &str) -> Vec<RecipeId> {
@@ -350,7 +340,7 @@ impl Importer for CalendarImporter {
         self.num_imported as f32 / (self.recipe_weeks.len() + self.num_imported) as f32
     }
 
-    fn import_one(&mut self, conn: &mut database::Connection) -> Result<()> {
+    fn import_one(&mut self, conn: &mut database::Connection, log: &mut String) -> Result<()> {
         assert!(!self.done());
 
         let week = self.recipe_weeks.pop().unwrap();
@@ -361,11 +351,11 @@ impl Importer for CalendarImporter {
 
             let recipes = find_recipes(conn, &recipe_name);
             if recipes.is_empty() {
-                println!("warning: recipe {recipe_name:?} not found");
+                writeln!(log, "warning: recipe {recipe_name:?} not found")?;
                 continue;
             }
             if recipes.len() > 1 {
-                println!("warning: multiple recipes named {recipe_name:?} found");
+                writeln!(log, "warning: multiple recipes named {recipe_name:?} found")?;
             }
             let recipe_id = recipes[0];
 
@@ -375,21 +365,11 @@ impl Importer for CalendarImporter {
                 .ok_or_else(|| format!("invalid date {date_time:?}"))?;
             let insert_date = computed_date_time.date_naive();
             if !add_calendar_entry(conn, insert_date, recipe_id) {
-                println!("warning: entry already exists for {insert_date}");
+                writeln!(log, "warning: entry already exists for {insert_date}")?;
             }
         }
         self.num_imported += 1;
 
         Ok(())
     }
-}
-pub fn import_calendar(mut conn: database::Connection, path: impl AsRef<Path>) -> Result<()> {
-    let mut importer = CalendarImporter::new(path)?;
-
-    while !importer.done() {
-        importer.import_one(&mut conn)?;
-        println!("imported {}%", importer.percent_done() * 100.0);
-    }
-
-    Ok(())
 }
