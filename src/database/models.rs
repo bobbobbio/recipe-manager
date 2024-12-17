@@ -162,12 +162,35 @@ impl IngredientUsageId {
 #[derive(Associations, Queryable, Selectable, Identifiable, Insertable, Clone)]
 #[diesel(belongs_to(Recipe))]
 #[diesel(belongs_to(Ingredient))]
-#[diesel(primary_key(recipe_id, ingredient_id))]
+#[diesel(primary_key(id))]
 #[diesel(table_name = crate::database::schema::ingredient_usages)]
 pub struct IngredientUsage {
     pub id: IngredientUsageId,
     pub recipe_id: RecipeId,
     pub ingredient_id: IngredientId,
+    pub quantity: f32,
+    pub quantity_units: Option<IngredientMeasurement>,
+}
+
+#[derive(DieselNewType, Debug, Hash, PartialEq, Eq, Copy, Clone)]
+pub struct IngredientCaloriesId(i32);
+
+impl IngredientCaloriesId {
+    pub const INITIAL: Self = Self(1);
+
+    pub fn next(&self) -> Self {
+        Self(self.0 + 1)
+    }
+}
+
+#[derive(Associations, Queryable, Selectable, Identifiable, Insertable, Clone)]
+#[diesel(belongs_to(Ingredient))]
+#[diesel(primary_key(id))]
+#[diesel(table_name = crate::database::schema::ingredient_calories)]
+pub struct IngredientCalories {
+    pub id: IngredientCaloriesId,
+    pub ingredient_id: IngredientId,
+    pub calories: f32,
     pub quantity: f32,
     pub quantity_units: Option<IngredientMeasurement>,
 }

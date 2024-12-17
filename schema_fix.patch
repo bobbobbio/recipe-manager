@@ -1,8 +1,17 @@
-diff --git a/tmp/a b/src/database/schema.rs
-index b5ddedf..c08507b 100644
---- a/tmp/a
+diff --git a/src/database/schema.rs b/src/database/schema.rs
+index 78a8686..2346fd1 100644
+--- a/src/database/schema.rs
 +++ b/src/database/schema.rs
-@@ -6,7 +6,7 @@ diesel::table! {
+@@ -13,7 +13,7 @@ diesel::table! {
+         ingredient_id -> Integer,
+         calories -> Float,
+         quantity -> Float,
+-        quantity_units -> Nullable<Text>,
++        quantity_units -> Nullable<crate::database::models::IngredientMeasurementMapping>,
+     }
+ }
+ 
+@@ -23,7 +23,7 @@ diesel::table! {
          recipe_id -> Integer,
          ingredient_id -> Integer,
          quantity -> Float,
@@ -11,7 +20,7 @@ index b5ddedf..c08507b 100644
      }
  }
  
-@@ -29,7 +29,7 @@ diesel::table! {
+@@ -47,7 +47,7 @@ diesel::table! {
          id -> Integer,
          name -> Text,
          description -> Text,
