@@ -308,14 +308,17 @@ fn add_calendar_entry(
     conn: &mut database::Connection,
     new_day: chrono::NaiveDate,
     new_recipe_id: RecipeId,
-) {
+) -> bool {
     use database::schema::calendar::dsl::*;
     use diesel::insert_into;
 
-    insert_into(calendar)
+    let affected = insert_into(calendar)
         .values((day.eq(new_day), recipe_id.eq(new_recipe_id)))
+        .on_conflict(day)
+        .do_nothing()
         .execute(conn)
         .unwrap();
+    affected > 0
 }
 
 pub struct CalendarImporter {
@@ -370,7 +373,10 @@ impl Importer for CalendarImporter {
             let computed_date_time = date_time
                 .checked_add_days(chrono::Days::new(day as u32 as u64))
                 .ok_or_else(|| format!("invalid date {date_time:?}"))?;
-            add_calendar_entry(conn, computed_date_time.date_naive(), recipe_id);
+            let insert_date = computed_date_time.date_naive();
+            if !add_calendar_entry(conn, insert_date, recipe_id) {
+                println!("warning: entry already exists for {insert_date}");
+            }
         }
         self.num_imported += 1;
 
