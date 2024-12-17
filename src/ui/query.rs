@@ -371,18 +371,21 @@ pub fn update_ingredient(
         .unwrap();
 }
 
-pub fn search_recipes_by_ingredient(
+pub fn search_recipes_by_ingredients(
     conn: &mut database::Connection,
-    ingredient_id: IngredientId,
+    ingredient_ids: Vec<IngredientId>,
 ) -> Vec<RecipeHandle> {
     use database::schema::{ingredient_usages, ingredients, recipes};
-    recipes::table
+    let mut query = recipes::table
         .inner_join(ingredient_usages::table.on(ingredient_usages::recipe_id.eq(recipes::id)))
         .inner_join(ingredients::table.on(ingredient_usages::ingredient_id.eq(ingredients::id)))
-        .filter(ingredients::id.eq(ingredient_id))
-        .select(RecipeHandle::as_select())
-        .load(conn)
-        .unwrap()
+        .into_boxed();
+
+    for i in ingredient_ids {
+        query = query.filter(ingredients::id.eq(i));
+    }
+
+    query.select(RecipeHandle::as_select()).load(conn).unwrap()
 }
 
 pub fn get_ingredients_for_recipe(

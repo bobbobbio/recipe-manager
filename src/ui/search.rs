@@ -1,7 +1,7 @@
-use super::recipe::RecipeWindow;
+use super::{new_error_toast, query, recipe::RecipeWindow};
 use crate::database::{
     self,
-    models::{RecipeHandle, RecipeId},
+    models::{Ingredient, IngredientHandle, RecipeHandle, RecipeId},
 };
 use eframe::egui;
 use std::collections::HashMap;
@@ -133,6 +133,76 @@ impl SearchResultsWindow {
                     }
                 });
             });
+        !open
+    }
+}
+
+pub struct RecipeSearchWindow {
+    to_search: Vec<IngredientHandle>,
+
+    new_ingredient_name: String,
+    new_ingredient: Option<Ingredient>,
+    cached_ingredient_search: Option<query::CachedQuery<Ingredient>>,
+}
+
+impl RecipeSearchWindow {
+    pub fn new() -> Self {
+        Self {
+            to_search: vec![],
+            new_ingredient_name: String::new(),
+            new_ingredient: None,
+            cached_ingredient_search: None,
+        }
+    }
+
+    pub fn update(
+        &mut self,
+        ctx: &egui::Context,
+        conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
+        mut search_for_ingredients: impl FnMut(&mut database::Connection, Vec<IngredientHandle>),
+    ) -> bool {
+        let mut open = true;
+        egui::Window::new("Recipe Search")
+            .open(&mut open)
+            .show(ctx, |ui| {
+                egui::Grid::new("Recipe Search").show(ui, |ui| {
+                    for ingredient in std::mem::take(&mut self.to_search) {
+                        ui.label(&ingredient.name);
+                        if !ui.button("Remove").clicked() {
+                            self.to_search.push(ingredient);
+                        }
+                        ui.end_row();
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.add(SearchWidget::new(
+                        "recipe search ingredient name",
+                        &mut self.new_ingredient_name,
+                        &mut self.new_ingredient,
+                        |query| {
+                            query::search_ingredients(
+                                conn,
+                                &mut self.cached_ingredient_search,
+                                query,
+                            )
+                        },
+                    ));
+                    if ui.button("Add").clicked() {
+                        if let Some(ingredient) = &self.new_ingredient {
+                            self.to_search.push(ingredient.to_handle());
+                            self.new_ingredient_name = "".into();
+                            self.new_ingredient = None;
+                        } else {
+                            toasts.add(new_error_toast("Couldn't find ingredient"));
+                        }
+                    }
+                });
+                if !self.to_search.is_empty() && ui.button("Search").clicked() {
+                    search_for_ingredients(conn, self.to_search.clone());
+                }
+            });
+
         !open
     }
 }

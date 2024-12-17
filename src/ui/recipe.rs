@@ -218,75 +218,73 @@ impl RecipeWindow {
             .open(&mut open)
             .show(ctx, |ui| {
                 self.update_ingredients(conn, toasts, ui);
-                egui::Grid::new("Recipe Information")
-                    .num_columns(2)
-                    .show(ui, |ui| {
-                        if self.edit_mode {
-                            ui.label("Name:");
-                            let mut name = self.recipe.name.clone();
-                            ui.add(egui::TextEdit::singleline(&mut name));
-                            if name != self.recipe.name {
-                                query::edit_recipe_name(conn, self.recipe.id, &name);
-                                self.recipe.name = name.clone();
-                                events.push(UpdateEvent::Renamed(self.recipe.clone()));
-                            }
-                            ui.end_row();
+                egui::Grid::new("Recipe Information").show(ui, |ui| {
+                    if self.edit_mode {
+                        ui.label("Name:");
+                        let mut name = self.recipe.name.clone();
+                        ui.add(egui::TextEdit::singleline(&mut name));
+                        if name != self.recipe.name {
+                            query::edit_recipe_name(conn, self.recipe.id, &name);
+                            self.recipe.name = name.clone();
+                            events.push(UpdateEvent::Renamed(self.recipe.clone()));
+                        }
+                        ui.end_row();
 
-                            ui.label("Category:");
-                            ui.add(SearchWidget::new(
-                                ("recipe category", self.recipe.id),
-                                &mut self.new_category_name,
-                                &mut self.new_category,
-                                |query| {
-                                    query::search_recipe_categories(
-                                        conn,
-                                        &mut self.cached_category_search,
-                                        query,
-                                    )
-                                },
-                            ));
-                            if ui.button("Save").clicked() {
-                                if let Some(cat) = self.new_category {
-                                    query::edit_recipe_category(conn, self.recipe.id, cat);
-                                    events.push(UpdateEvent::CategoryChanged);
-                                } else {
-                                    toasts.add(new_error_toast("Couldn't find recipe category"));
+                        ui.label("Category:");
+                        ui.add(SearchWidget::new(
+                            ("recipe category", self.recipe.id),
+                            &mut self.new_category_name,
+                            &mut self.new_category,
+                            |query| {
+                                query::search_recipe_categories(
+                                    conn,
+                                    &mut self.cached_category_search,
+                                    query,
+                                )
+                            },
+                        ));
+                        if ui.button("Save").clicked() {
+                            if let Some(cat) = self.new_category {
+                                query::edit_recipe_category(conn, self.recipe.id, cat);
+                                events.push(UpdateEvent::CategoryChanged);
+                            } else {
+                                toasts.add(new_error_toast("Couldn't find recipe category"));
+                            }
+                        }
+                        ui.end_row();
+                    }
+                    ui.label("Duration:");
+                    if self.edit_mode {
+                        let mut selected = self.recipe.duration.clone();
+                        egui::ComboBox::from_id_salt("recipe duration")
+                            .selected_text(&selected.to_string())
+                            .show_ui(ui, |ui| {
+                                for d in RecipeDuration::iter() {
+                                    ui.selectable_value(&mut selected, d, d.to_string());
                                 }
-                            }
-                            ui.end_row();
+                            });
+                        if selected != self.recipe.duration {
+                            query::edit_recipe_duration(conn, self.recipe.id, selected);
+                            self.recipe.duration = selected;
                         }
-                        ui.label("Duration:");
-                        if self.edit_mode {
-                            let mut selected = self.recipe.duration.clone();
-                            egui::ComboBox::from_id_salt("recipe duration")
-                                .selected_text(&selected.to_string())
-                                .show_ui(ui, |ui| {
-                                    for d in RecipeDuration::iter() {
-                                        ui.selectable_value(&mut selected, d, d.to_string());
-                                    }
-                                });
-                            if selected != self.recipe.duration {
-                                query::edit_recipe_duration(conn, self.recipe.id, selected);
-                                self.recipe.duration = selected;
-                            }
-                        } else {
-                            ui.label(self.recipe.duration.to_string());
-                        }
-                        ui.end_row();
+                    } else {
+                        ui.label(self.recipe.duration.to_string());
+                    }
+                    ui.end_row();
 
-                        ui.label("Description:");
-                        if self.edit_mode {
-                            let mut description = self.recipe.description.clone();
-                            ui.add(egui::TextEdit::multiline(&mut description));
-                            if description != self.recipe.description {
-                                query::edit_recipe_description(conn, self.recipe.id, &description);
-                                self.recipe.description = description;
-                            }
-                        } else {
-                            ui.label(&self.recipe.description);
+                    ui.label("Description:");
+                    if self.edit_mode {
+                        let mut description = self.recipe.description.clone();
+                        ui.add(egui::TextEdit::multiline(&mut description));
+                        if description != self.recipe.description {
+                            query::edit_recipe_description(conn, self.recipe.id, &description);
+                            self.recipe.description = description;
                         }
-                        ui.end_row();
-                    });
+                    } else {
+                        ui.label(&self.recipe.description);
+                    }
+                    ui.end_row();
+                });
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut self.edit_mode, "Edit");

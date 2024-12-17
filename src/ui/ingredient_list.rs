@@ -57,7 +57,7 @@ impl IngredientListWindow {
         &mut self,
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
-        mut search_for_ingredient: impl FnMut(&mut database::Connection, IngredientHandle),
+        mut search_for_ingredient: impl FnMut(&mut database::Connection, Vec<IngredientHandle>),
         ctx: &egui::Context,
     ) -> Vec<UpdateEvent> {
         let mut open = true;
@@ -139,10 +139,10 @@ impl IngredientListWindow {
                                     if ui.button("Search").clicked() {
                                         search_for_ingredient(
                                             conn,
-                                            IngredientHandle {
+                                            vec![IngredientHandle {
                                                 id: ingredient.id,
                                                 name: ingredient.name.clone(),
-                                            },
+                                            }],
                                         );
                                     }
                                 }

@@ -28,6 +28,15 @@ pub struct Ingredient {
     pub category: Option<String>,
 }
 
+impl Ingredient {
+    pub fn to_handle(&self) -> IngredientHandle {
+        IngredientHandle {
+            id: self.id,
+            name: self.name.clone(),
+        }
+    }
+}
+
 #[derive(Queryable, Selectable, Identifiable, Insertable, Clone)]
 #[diesel(table_name = crate::database::schema::ingredients)]
 pub struct IngredientHandle {
