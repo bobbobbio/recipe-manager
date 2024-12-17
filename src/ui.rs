@@ -4,6 +4,7 @@ mod calendar;
 mod category_list;
 mod generate_rtf;
 mod import;
+mod ingredient_calories;
 mod ingredient_list;
 mod query;
 mod recipe;
@@ -11,11 +12,12 @@ mod recipe_list;
 mod search;
 
 use crate::database;
-use crate::database::models::{IngredientHandle, RecipeCategoryId, RecipeId};
+use crate::database::models::{IngredientHandle, IngredientId, RecipeCategoryId, RecipeId};
 use calendar::CalendarWindow;
 use category_list::CategoryListWindow;
 use eframe::egui;
 use import::ImportWindow;
+use ingredient_calories::IngredientCaloriesWindow;
 use ingredient_list::IngredientListWindow;
 use recipe::RecipeWindow;
 use recipe_list::RecipeListWindow;
@@ -47,6 +49,7 @@ pub struct RecipeManager {
     search_result_windows: Vec<SearchResultsWindow>,
     next_search_results_window_id: u64,
     recipe_search_window: Option<RecipeSearchWindow>,
+    ingredient_calories_windows: HashMap<IngredientId, IngredientCaloriesWindow>,
 }
 
 impl RecipeManager {
@@ -62,6 +65,7 @@ impl RecipeManager {
             search_result_windows: Default::default(),
             next_search_results_window_id: 0,
             recipe_search_window: None,
+            ingredient_calories_windows: Default::default(),
             toasts: egui_toast::Toasts::new()
                 .anchor(egui::Align2::LEFT_BOTTOM, (10.0, 10.0))
                 .direction(egui::Direction::BottomUp),
@@ -210,8 +214,13 @@ impl RecipeManager {
                     ingredients,
                 )
             };
-            let events =
-                window.update(&mut self.conn, &mut self.toasts, search_for_ingredient, ctx);
+            let events = window.update(
+                &mut self.conn,
+                &mut self.toasts,
+                &mut self.ingredient_calories_windows,
+                search_for_ingredient,
+                ctx,
+            );
             for e in events {
                 match e {
                     ingredient_list::UpdateEvent::Closed => self.ingredient_list_window = None,
@@ -266,6 +275,15 @@ impl RecipeManager {
             }
         }
     }
+
+    fn update_ingredient_calories_windows(&mut self, ctx: &egui::Context) {
+        for (id, mut ingredient_calories) in mem::take(&mut self.ingredient_calories_windows) {
+            if !ingredient_calories.update(ctx, &mut self.conn) {
+                self.ingredient_calories_windows
+                    .insert(id, ingredient_calories);
+            }
+        }
+    }
 }
 
 impl eframe::App for RecipeManager {
@@ -283,6 +301,7 @@ impl eframe::App for RecipeManager {
         self.update_calendar_window(ctx);
         self.update_search_result_windows(ctx);
         self.update_recipe_search_window(ctx);
+        self.update_ingredient_calories_windows(ctx);
         self.toasts.show(ctx);
     }
 }

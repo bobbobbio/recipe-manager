@@ -1,4 +1,4 @@
-use super::{query, search::SearchWidget};
+use super::{ingredient_calories::IngredientCaloriesWindow, query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{Ingredient, IngredientHandle, IngredientId};
 use diesel::ExpressionMethods as _;
@@ -6,6 +6,7 @@ use diesel::QueryDsl as _;
 use diesel::RunQueryDsl as _;
 use diesel::SelectableHelper as _;
 use eframe::egui;
+use std::collections::HashMap;
 
 struct IngredientBeingEdited {
     id: IngredientId,
@@ -57,6 +58,7 @@ impl IngredientListWindow {
         &mut self,
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
+        ingredient_calories_windows: &mut HashMap<IngredientId, IngredientCaloriesWindow>,
         mut search_for_ingredient: impl FnMut(&mut database::Connection, Vec<IngredientHandle>),
         ctx: &egui::Context,
     ) -> Vec<UpdateEvent> {
@@ -116,6 +118,10 @@ impl IngredientListWindow {
 
                                 ui.label(&ingredient.name);
                                 ui.label(ingredient.category.as_deref().unwrap_or(""));
+
+                                let mut calories_shown =
+                                    ingredient_calories_windows.contains_key(&ingredient.id);
+
                                 if self.edit_mode {
                                     if ui.button("Edit").clicked() {
                                         self.ingredient_being_edited =
@@ -124,6 +130,7 @@ impl IngredientListWindow {
                                     if ui.button("Delete").clicked() {
                                         if query::delete_ingredient(conn, ingredient.id) {
                                             refresh_self = true;
+                                            calories_shown = false;
                                         } else {
                                             toasts.add(egui_toast::Toast {
                                                 text: "Couldn't delete ingredient, \
@@ -148,6 +155,17 @@ impl IngredientListWindow {
                                             }],
                                         );
                                     }
+                                    ui.toggle_value(&mut calories_shown, "Calories");
+                                }
+                                if calories_shown
+                                    && !ingredient_calories_windows.contains_key(&ingredient.id)
+                                {
+                                    ingredient_calories_windows.insert(
+                                        ingredient.id,
+                                        IngredientCaloriesWindow::new(conn, ingredient.to_handle()),
+                                    );
+                                } else if !calories_shown {
+                                    ingredient_calories_windows.remove(&ingredient.id);
                                 }
                                 ui.end_row();
                             }
