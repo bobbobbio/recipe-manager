@@ -314,6 +314,7 @@ fn add_calendar_entry(
 pub struct CalendarImporter {
     recipe_weeks: Vec<plist::RecipeWeek>,
     num_imported: usize,
+    num_ignored: usize,
 }
 
 impl CalendarImporter {
@@ -323,6 +324,7 @@ impl CalendarImporter {
         Ok(Self {
             recipe_weeks,
             num_imported: 0,
+            num_ignored: 0,
         })
     }
 }
@@ -337,12 +339,14 @@ impl Importer for CalendarImporter {
     }
 
     fn percent_done(&self) -> f32 {
-        self.num_imported as f32 / (self.recipe_weeks.len() + self.num_imported) as f32
+        self.num_imported as f32
+            / (self.recipe_weeks.len() + self.num_imported + self.num_ignored) as f32
     }
 
     fn import_one(&mut self, conn: &mut database::Connection, log: &mut String) -> Result<()> {
         assert!(!self.done());
 
+        let mut something_imported = false;
         let week = self.recipe_weeks.pop().unwrap();
         for (day, recipe_name) in week.days {
             if recipe_name == "No Recipe" {
@@ -364,11 +368,17 @@ impl Importer for CalendarImporter {
                 .checked_add_days(chrono::Days::new(day as u32 as u64))
                 .ok_or_else(|| format!("invalid date {date_time:?}"))?;
             let insert_date = computed_date_time.date_naive();
-            if !add_calendar_entry(conn, insert_date, recipe_id) {
+            if add_calendar_entry(conn, insert_date, recipe_id) {
+                something_imported = true;
+            } else {
                 writeln!(log, "warning: entry already exists for {insert_date}")?;
             }
         }
-        self.num_imported += 1;
+        if something_imported {
+            self.num_imported += 1;
+        } else {
+            self.num_ignored += 1;
+        }
 
         Ok(())
     }
