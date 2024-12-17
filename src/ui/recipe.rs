@@ -293,20 +293,21 @@ impl RecipeWindow {
                     if !self.edit_mode {
                         self.ingredient_being_edited = None;
                     }
-                    self.week.pick_date(conn, |date| {
-                        ui.add(egui_extras::DatePickerButton::new(date));
-                    });
-
-                    ui.menu_button("Schedule", |ui| {
-                        for (day, recipe) in self.week.recipes() {
-                            let recipe =
-                                recipe.map(|r| r.name.clone()).unwrap_or("No Recipe".into());
-                            if ui.button(format!("{day}: {recipe}")).clicked() {
-                                self.week.schedule(conn, day, self.recipe.id);
-                                ui.close_menu();
-                                events.push(UpdateEvent::Scheduled(*self.week.week()));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.menu_button("Schedule", |ui| {
+                            for (day, recipe) in self.week.recipes() {
+                                let recipe =
+                                    recipe.map(|r| r.name.clone()).unwrap_or("No Recipe".into());
+                                if ui.button(format!("{day}: {recipe}")).clicked() {
+                                    self.week.schedule(conn, day, self.recipe.id);
+                                    ui.close_menu();
+                                    events.push(UpdateEvent::Scheduled(*self.week.week()));
+                                }
                             }
-                        }
+                        });
+                        self.week.pick_date(conn, |date| {
+                            ui.add(egui_extras::DatePickerButton::new(date));
+                        });
                     });
                 });
             });

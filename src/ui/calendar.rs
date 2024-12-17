@@ -209,36 +209,40 @@ impl CalendarWindow {
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut self.edit_mode, "Edit");
-                    if ui.button("Next").clicked() {
-                        self.week.advance(conn);
-                        self.recipes_being_selected.clear();
-                    }
                     if ui.button("Previous").clicked() {
                         self.week.previous(conn);
                         self.recipes_being_selected.clear();
                     }
-                    if ui.button("Menu").clicked() {
-                        if let Err(error) = generate_rtf::generate_and_open_menu(&self.week) {
-                            toasts.add(new_error_toast(format!("Error generating menu: {error}")));
-                        }
+                    if ui.button("Next").clicked() {
+                        self.week.advance(conn);
+                        self.recipes_being_selected.clear();
                     }
-                    if ui.button("Shopping List").clicked() {
-                        let mut ingredients = vec![];
-                        for (_, recipe) in self.week.recipes() {
-                            if let Some(recipe) = recipe {
-                                ingredients
-                                    .extend(query::get_ingredients_for_recipe(conn, recipe.id));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Menu").clicked() {
+                            if let Err(error) = generate_rtf::generate_and_open_menu(&self.week) {
+                                toasts.add(new_error_toast(format!(
+                                    "Error generating menu: {error}"
+                                )));
                             }
                         }
-                        if let Err(error) = generate_rtf::generate_and_open_shopping_list(
-                            self.week.week(),
-                            ingredients,
-                        ) {
-                            toasts.add(new_error_toast(format!(
-                                "Error generating shopping list: {error}"
-                            )));
+                        if ui.button("Shopping List").clicked() {
+                            let mut ingredients = vec![];
+                            for (_, recipe) in self.week.recipes() {
+                                if let Some(recipe) = recipe {
+                                    ingredients
+                                        .extend(query::get_ingredients_for_recipe(conn, recipe.id));
+                                }
+                            }
+                            if let Err(error) = generate_rtf::generate_and_open_shopping_list(
+                                self.week.week(),
+                                ingredients,
+                            ) {
+                                toasts.add(new_error_toast(format!(
+                                    "Error generating shopping list: {error}"
+                                )));
+                            }
                         }
-                    }
+                    });
                 });
             });
 
