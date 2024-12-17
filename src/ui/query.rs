@@ -382,10 +382,14 @@ pub fn search_recipes_by_ingredients(
         .into_boxed();
 
     for i in ingredient_ids {
-        query = query.filter(ingredients::id.eq(i));
+        query = query.or_filter(ingredients::id.eq(i));
     }
 
-    query.select(RecipeHandle::as_select()).load(conn).unwrap()
+    query
+        .select(RecipeHandle::as_select())
+        .distinct()
+        .load(conn)
+        .unwrap()
 }
 
 pub fn get_ingredients_for_recipe(
