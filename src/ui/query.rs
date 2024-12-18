@@ -75,19 +75,31 @@ pub fn delete_category(conn: &mut database::Connection, delete_id: RecipeCategor
 }
 
 pub fn delete_ingredient(conn: &mut database::Connection, delete_id: IngredientId) -> bool {
-    use database::schema::{ingredient_usages, ingredients};
+    use database::schema::{ingredient_calories, ingredient_usages, ingredients};
     use diesel::delete;
     use diesel::dsl::{exists, not};
 
-    let affected = delete(
-        ingredients::table.filter(ingredients::id.eq(delete_id).and(not(exists(
-            ingredient_usages::table.filter(ingredient_usages::ingredient_id.eq(delete_id)),
-        )))),
-    )
-    .execute(conn)
-    .unwrap();
+    conn.transaction::<_, diesel::result::Error, _>(|conn| {
+        let affected = delete(
+            ingredients::table.filter(ingredients::id.eq(delete_id).and(not(exists(
+                ingredient_usages::table.filter(ingredient_usages::ingredient_id.eq(delete_id)),
+            )))),
+        )
+        .execute(conn)
+        .unwrap();
 
-    affected > 0
+        if affected > 0 {
+            delete(
+                ingredient_calories::table.filter(ingredient_calories::ingredient_id.eq(delete_id)),
+            )
+            .execute(conn)
+            .unwrap();
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    })
+    .unwrap()
 }
 
 pub fn edit_category(
