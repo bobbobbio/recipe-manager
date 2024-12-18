@@ -55,7 +55,7 @@ pub struct RecipeManager {
 impl RecipeManager {
     pub fn new(mut conn: database::Connection) -> Self {
         Self {
-            category_list: CategoryListWindow::new(&mut conn),
+            category_list: CategoryListWindow::new(&mut conn, false),
             conn,
             import_window: None,
             recipe_lists: Default::default(),

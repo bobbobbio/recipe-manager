@@ -17,7 +17,11 @@ pub struct RecipeListWindow {
 }
 
 impl RecipeListWindow {
-    pub fn new(conn: &mut database::Connection, recipe_category: RecipeCategory) -> Self {
+    pub fn new(
+        conn: &mut database::Connection,
+        recipe_category: RecipeCategory,
+        edit_mode: bool,
+    ) -> Self {
         use database::schema::recipes::dsl::*;
         let recipe_vec = recipes
             .select(RecipeHandle::as_select())
@@ -34,7 +38,7 @@ impl RecipeListWindow {
             recipes: recipe_vec,
             recipe_lookup,
             recipe_category,
-            edit_mode: false,
+            edit_mode,
             new_recipe_name: String::new(),
         }
     }
@@ -99,7 +103,7 @@ impl RecipeListWindow {
             });
 
         if refresh_self {
-            *self = Self::new(conn, self.recipe_category.clone());
+            *self = Self::new(conn, self.recipe_category.clone(), self.edit_mode);
         }
 
         !open
@@ -116,6 +120,6 @@ impl RecipeListWindow {
     }
 
     pub fn recipe_category_changed(&mut self, conn: &mut database::Connection) {
-        *self = Self::new(conn, self.recipe_category.clone());
+        *self = Self::new(conn, self.recipe_category.clone(), self.edit_mode);
     }
 }

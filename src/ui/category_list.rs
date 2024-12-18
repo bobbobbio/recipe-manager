@@ -20,7 +20,7 @@ pub struct CategoryListWindow {
 }
 
 impl CategoryListWindow {
-    pub fn new(conn: &mut database::Connection) -> Self {
+    pub fn new(conn: &mut database::Connection, edit_mode: bool) -> Self {
         use database::schema::recipe_categories::dsl::*;
         Self {
             categories: recipe_categories
@@ -29,7 +29,7 @@ impl CategoryListWindow {
                 .load(conn)
                 .unwrap(),
             new_category_name: String::new(),
-            edit_mode: false,
+            edit_mode,
             category_being_edited: None,
         }
     }
@@ -99,7 +99,7 @@ impl CategoryListWindow {
                                     name: name.clone(),
                                 };
                                 recipe_list_windows
-                                    .insert(*cat_id, RecipeListWindow::new(conn, cat));
+                                    .insert(*cat_id, RecipeListWindow::new(conn, cat, false));
                             } else if !shown {
                                 recipe_list_windows.remove(cat_id);
                             }
@@ -124,11 +124,11 @@ impl CategoryListWindow {
         });
 
         if refresh_self {
-            *self = Self::new(conn);
+            *self = Self::new(conn, self.edit_mode);
         }
     }
 
     pub fn recipes_imported(&mut self, conn: &mut database::Connection) {
-        *self = Self::new(conn);
+        *self = Self::new(conn, self.edit_mode);
     }
 }
