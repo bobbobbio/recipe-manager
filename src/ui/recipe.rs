@@ -501,6 +501,15 @@ impl RecipeWindow {
                         ui.label(&self.recipe.description);
                     }
                     ui.end_row();
+
+                    ui.label(format!(
+                        "Total Calories: {:.2}",
+                        self.ingredients
+                            .iter()
+                            .filter_map(|i| i.calories())
+                            .sum::<f32>()
+                    ));
+                    ui.end_row();
                 });
                 ui.separator();
                 ui.horizontal(|ui| {
