@@ -63,27 +63,29 @@ impl RecipeListWindow {
                     .auto_shrink(false)
                     .max_height(scroll_height)
                     .show(ui, |ui| {
-                        egui::Grid::new("recipe_listing").show(ui, |ui| {
-                            for RecipeHandle { name, id } in &self.recipes {
-                                let mut shown = recipe_windows.contains_key(&id);
-                                ui.toggle_value(&mut shown, name.clone());
+                        egui::Grid::new(("recipe category list grid", self.recipe_category.id))
+                            .show(ui, |ui| {
+                                for RecipeHandle { name, id } in &self.recipes {
+                                    let mut shown = recipe_windows.contains_key(&id);
+                                    ui.toggle_value(&mut shown, name.clone());
 
-                                if self.edit_mode {
-                                    if ui.button("Delete").clicked() {
-                                        query::delete_recipe(conn, *id);
-                                        refresh_self = true;
-                                        shown = false;
+                                    if self.edit_mode {
+                                        if ui.button("Delete").clicked() {
+                                            query::delete_recipe(conn, *id);
+                                            refresh_self = true;
+                                            shown = false;
+                                        }
+                                    }
+                                    ui.end_row();
+
+                                    if shown && !recipe_windows.contains_key(&id) {
+                                        recipe_windows
+                                            .insert(*id, RecipeWindow::new(conn, *id, false));
+                                    } else if !shown {
+                                        recipe_windows.remove(id);
                                     }
                                 }
-                                ui.end_row();
-
-                                if shown && !recipe_windows.contains_key(&id) {
-                                    recipe_windows.insert(*id, RecipeWindow::new(conn, *id, false));
-                                } else if !shown {
-                                    recipe_windows.remove(id);
-                                }
-                            }
-                        });
+                            });
                     });
                 ui.separator();
                 ui.horizontal(|ui| {

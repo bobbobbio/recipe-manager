@@ -117,8 +117,7 @@ impl RecipeWindow {
         ui: &mut egui::Ui,
     ) {
         let mut refresh_self = false;
-        let name = &self.recipe.name;
-        egui::Grid::new(format!("{name} ingredients")).show(ui, |ui| {
+        egui::Grid::new(("ingredient grid", self.recipe.id)).show(ui, |ui| {
             ui.label("Name");
             ui.label("Category");
             ui.label("Quantity");
@@ -152,16 +151,17 @@ impl RecipeWindow {
                             ui.label("");
                         }
                         ui.add(egui::TextEdit::singleline(&mut e.quantity));
-                        egui::ComboBox::from_id_salt("recipe ingredient quantity units")
-                            .selected_text(
-                                e.quantity_units.as_ref().map(|q| q.as_str()).unwrap_or(""),
-                            )
-                            .show_ui(ui, |ui| {
-                                for m in IngredientMeasurement::iter() {
-                                    ui.selectable_value(&mut e.quantity_units, Some(m), m.as_str());
-                                }
-                                ui.selectable_value(&mut e.quantity_units, None, "");
-                            });
+                        egui::ComboBox::from_id_salt((
+                            "recipe ingredient quantity units",
+                            self.recipe.id,
+                        ))
+                        .selected_text(e.quantity_units.as_ref().map(|q| q.as_str()).unwrap_or(""))
+                        .show_ui(ui, |ui| {
+                            for m in IngredientMeasurement::iter() {
+                                ui.selectable_value(&mut e.quantity_units, Some(m), m.as_str());
+                            }
+                            ui.selectable_value(&mut e.quantity_units, None, "");
+                        });
                         ui.label("");
                         if ui.button("Save").clicked() {
                             if e.ingredient.is_some() {
@@ -261,7 +261,7 @@ impl RecipeWindow {
             .open(&mut open)
             .show(ctx, |ui| {
                 self.update_ingredients(conn, toasts, ui);
-                egui::Grid::new("Recipe Information").show(ui, |ui| {
+                egui::Grid::new(("recipe information", self.recipe.id)).show(ui, |ui| {
                     if self.edit_mode {
                         ui.label("Name:");
                         let mut name = self.recipe.name.clone();
@@ -302,7 +302,7 @@ impl RecipeWindow {
                     ui.label("Duration:");
                     if self.edit_mode {
                         let mut selected = self.recipe.duration.clone();
-                        egui::ComboBox::from_id_salt("recipe duration")
+                        egui::ComboBox::from_id_salt(("recipe duration", self.recipe.id))
                             .selected_text(&selected.to_string())
                             .show_ui(ui, |ui| {
                                 for d in RecipeDuration::iter() {
