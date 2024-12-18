@@ -16,6 +16,11 @@ pub struct IngredientCaloriesWindow {
     new_entry: NewEntry,
 }
 
+pub enum UpdateEvent {
+    Closed,
+    IngredientEdited,
+}
+
 impl IngredientCaloriesWindow {
     pub fn new(conn: &mut database::Connection, ingredient: IngredientHandle) -> Self {
         let ingredient_calories = query::get_ingredient_calories(conn, ingredient.id);
@@ -27,9 +32,14 @@ impl IngredientCaloriesWindow {
         }
     }
 
-    pub fn update(&mut self, ctx: &egui::Context, conn: &mut database::Connection) -> bool {
+    pub fn update(
+        &mut self,
+        ctx: &egui::Context,
+        conn: &mut database::Connection,
+    ) -> Vec<UpdateEvent> {
         let mut open = true;
         let mut refresh_self = false;
+        let mut events = vec![];
         egui::Window::new(self.ingredient.name.clone())
             .id(egui::Id::new(("ingredient calories", self.ingredient.id)))
             .open(&mut open)
@@ -47,6 +57,7 @@ impl IngredientCaloriesWindow {
                         if ui.button("Delete").clicked() {
                             query::delete_ingredient_calories_entry(conn, c.id);
                             refresh_self = true;
+                            events.push(UpdateEvent::IngredientEdited);
                         }
                         ui.end_row();
                     }
@@ -84,6 +95,7 @@ impl IngredientCaloriesWindow {
                             self.new_entry.quantity_units,
                         );
                         refresh_self = true;
+                        events.push(UpdateEvent::IngredientEdited);
                     }
                     ui.end_row()
                 });
@@ -92,6 +104,10 @@ impl IngredientCaloriesWindow {
             *self = Self::new(conn, self.ingredient.clone());
         }
 
-        !open
+        if !open {
+            events.push(UpdateEvent::Closed);
+        }
+
+        events
     }
 }

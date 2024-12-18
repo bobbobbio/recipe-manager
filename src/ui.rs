@@ -224,9 +224,9 @@ impl RecipeManager {
             for e in events {
                 match e {
                     ingredient_list::UpdateEvent::Closed => self.ingredient_list_window = None,
-                    ingredient_list::UpdateEvent::IngredientEdited(ingredient) => {
+                    ingredient_list::UpdateEvent::IngredientEdited => {
                         for r in self.recipes.values_mut() {
-                            r.ingredient_edited(&mut self.conn, ingredient.clone());
+                            r.ingredient_edited(&mut self.conn);
                         }
                     }
                 }
@@ -278,7 +278,19 @@ impl RecipeManager {
 
     fn update_ingredient_calories_windows(&mut self, ctx: &egui::Context) {
         for (id, mut ingredient_calories) in mem::take(&mut self.ingredient_calories_windows) {
-            if !ingredient_calories.update(ctx, &mut self.conn) {
+            let mut closed = false;
+            let events = ingredient_calories.update(ctx, &mut self.conn);
+            for event in events {
+                match event {
+                    ingredient_calories::UpdateEvent::Closed => closed = true,
+                    ingredient_calories::UpdateEvent::IngredientEdited => {
+                        for r in self.recipes.values_mut() {
+                            r.ingredient_edited(&mut self.conn);
+                        }
+                    }
+                }
+            }
+            if !closed {
                 self.ingredient_calories_windows
                     .insert(id, ingredient_calories);
             }

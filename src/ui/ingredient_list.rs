@@ -28,7 +28,7 @@ impl IngredientBeingEdited {
 
 pub enum UpdateEvent {
     Closed,
-    IngredientEdited(Ingredient),
+    IngredientEdited,
 }
 
 pub struct IngredientListWindow {
@@ -107,9 +107,7 @@ impl IngredientListWindow {
                                             );
                                             self.ingredient_being_edited = None;
                                             refresh_self = true;
-                                            events.push(UpdateEvent::IngredientEdited(
-                                                ingredient.clone(),
-                                            ));
+                                            events.push(UpdateEvent::IngredientEdited);
                                         }
                                         ui.end_row();
                                         continue;

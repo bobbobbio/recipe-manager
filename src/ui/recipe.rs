@@ -5,7 +5,7 @@ use super::{
 };
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
+    Ingredient, IngredientCaloriesEntry, IngredientMeasurement, IngredientUsageId, Recipe,
     RecipeCategoryId, RecipeDuration, RecipeId,
 };
 use eframe::egui;
@@ -20,15 +20,34 @@ struct IngredientBeingEdited {
 }
 
 impl IngredientBeingEdited {
-    fn new(i: &Ingredient, u: &IngredientUsage) -> Self {
+    fn new(usage: &RecipeIngredient) -> Self {
         Self {
-            usage_id: u.id,
-            new_ingredient_name: i.name.clone(),
-            ingredient: Some(i.clone()),
-            quantity: u.quantity.to_string(),
-            quantity_units: u.quantity_units,
+            usage_id: usage.id,
+            new_ingredient_name: usage.ingredient.name.clone(),
+            ingredient: Some(usage.ingredient.clone()),
+            quantity: usage.quantity.to_string(),
+            quantity_units: usage.quantity_units,
             cached_ingredient_search: None,
         }
+    }
+}
+
+pub struct RecipeIngredient {
+    pub id: IngredientUsageId,
+    pub ingredient: Ingredient,
+    pub quantity: f32,
+    pub quantity_units: Option<IngredientMeasurement>,
+    pub calories: Vec<IngredientCaloriesEntry>,
+}
+
+impl RecipeIngredient {
+    fn calories(&self) -> Option<f32> {
+        for c in &self.calories {
+            if c.quantity_units == self.quantity_units {
+                return Some(c.calories * self.quantity);
+            }
+        }
+        None
     }
 }
 
@@ -42,7 +61,7 @@ pub enum UpdateEvent {
 pub struct RecipeWindow {
     recipe: Recipe,
 
-    ingredients: Vec<(IngredientUsage, Ingredient)>,
+    ingredients: Vec<RecipeIngredient>,
     ingredient_being_edited: Option<IngredientBeingEdited>,
 
     new_ingredient_name: String,
@@ -94,9 +113,10 @@ impl RecipeWindow {
             ui.label("Category");
             ui.label("Quantity");
             ui.label("Measurement");
+            ui.label("Calories");
             ui.end_row();
 
-            for (usage, ingredient) in &self.ingredients {
+            for usage in &self.ingredients {
                 if let Some(e) = &mut self.ingredient_being_edited {
                     if e.usage_id == usage.id {
                         ui.add(SearchWidget::new(
@@ -132,6 +152,7 @@ impl RecipeWindow {
                                 }
                                 ui.selectable_value(&mut e.quantity_units, None, "");
                             });
+                        ui.label("");
                         if ui.button("Save").clicked() {
                             if e.ingredient.is_some() {
                                 query::edit_recipe_ingredient(
@@ -151,8 +172,8 @@ impl RecipeWindow {
                     }
                 }
 
-                ui.label(&ingredient.name);
-                ui.label(ingredient.category.as_deref().unwrap_or(""));
+                ui.label(&usage.ingredient.name);
+                ui.label(usage.ingredient.category.as_deref().unwrap_or(""));
                 ui.label(usage.quantity.to_string());
                 ui.label(
                     usage
@@ -161,10 +182,10 @@ impl RecipeWindow {
                         .map(|c| c.as_str())
                         .unwrap_or(""),
                 );
+                ui.label(usage.calories().map(|c| c.to_string()).unwrap_or_default());
                 if self.edit_mode && self.ingredient_being_edited.is_none() {
                     if ui.button("Edit").clicked() {
-                        self.ingredient_being_edited =
-                            Some(IngredientBeingEdited::new(ingredient, usage));
+                        self.ingredient_being_edited = Some(IngredientBeingEdited::new(usage));
                     }
                     if ui.button("Delete").clicked() {
                         query::delete_recipe_ingredient(conn, usage.id);
@@ -332,7 +353,7 @@ impl RecipeWindow {
         }
     }
 
-    pub fn ingredient_edited(&mut self, conn: &mut database::Connection, _ingredient: Ingredient) {
+    pub fn ingredient_edited(&mut self, conn: &mut database::Connection) {
         *self = Self::new(conn, self.recipe.id, self.edit_mode);
     }
 }

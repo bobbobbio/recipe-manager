@@ -467,10 +467,30 @@ pub fn get_ingredient_calories(
         .unwrap()
 }
 
+pub fn get_ingredient_calories_many(
+    conn: &mut database::Connection,
+    get_ingredient_ids: Vec<IngredientId>,
+) -> Vec<IngredientCaloriesEntry> {
+    use database::schema::ingredient_calories;
+
+    if get_ingredient_ids.is_empty() {
+        return vec![];
+    }
+
+    let mut query = ingredient_calories::table
+        .select(IngredientCaloriesEntry::as_select())
+        .into_boxed();
+    for get_ingredient_id in get_ingredient_ids {
+        query = query.or_filter(ingredient_calories::ingredient_id.eq(get_ingredient_id));
+    }
+
+    query.load(conn).unwrap()
+}
+
 pub fn get_recipe(
     conn: &mut database::Connection,
     recipe_id: RecipeId,
-) -> (Recipe, String, Vec<(IngredientUsage, Ingredient)>) {
+) -> (Recipe, String, Vec<crate::ui::recipe::RecipeIngredient>) {
     use database::schema::{recipe_categories, recipes};
 
     let (recipe, category) = recipes::table
@@ -479,7 +499,28 @@ pub fn get_recipe(
         .select((Recipe::as_select(), recipe_categories::name))
         .get_result(conn)
         .unwrap();
-    let ingredients = get_ingredients_for_recipe(conn, recipe_id);
+    let mut ingredients: Vec<_> = get_ingredients_for_recipe(conn, recipe_id)
+        .into_iter()
+        .map(|(u, i)| crate::ui::recipe::RecipeIngredient {
+            id: u.id,
+            ingredient: i,
+            quantity: u.quantity,
+            quantity_units: u.quantity_units,
+            calories: vec![],
+        })
+        .collect();
+    let mut index_map = HashMap::<IngredientId, Vec<usize>>::new();
+    for (i, u) in ingredients.iter().enumerate() {
+        index_map.entry(u.ingredient.id).or_default().push(i);
+    }
+    for entry in
+        get_ingredient_calories_many(conn, ingredients.iter().map(|u| u.ingredient.id).collect())
+    {
+        for index in &index_map[&entry.ingredient_id] {
+            ingredients[*index].calories.push(entry.clone());
+        }
+    }
+
     (recipe, category, ingredients)
 }
 
