@@ -173,9 +173,9 @@ pub struct IngredientUsage {
 }
 
 #[derive(DieselNewType, Debug, Hash, PartialEq, Eq, Copy, Clone)]
-pub struct IngredientCaloriesId(i32);
+pub struct IngredientCaloriesEntryId(i32);
 
-impl IngredientCaloriesId {
+impl IngredientCaloriesEntryId {
     pub const INITIAL: Self = Self(1);
 
     pub fn next(&self) -> Self {
@@ -187,8 +187,8 @@ impl IngredientCaloriesId {
 #[diesel(belongs_to(Ingredient))]
 #[diesel(primary_key(id))]
 #[diesel(table_name = crate::database::schema::ingredient_calories)]
-pub struct IngredientCalories {
-    pub id: IngredientCaloriesId,
+pub struct IngredientCaloriesEntry {
+    pub id: IngredientCaloriesEntryId,
     pub ingredient_id: IngredientId,
     pub calories: f32,
     pub quantity: f32,

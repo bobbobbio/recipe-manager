@@ -1,6 +1,6 @@
 use super::query;
 use crate::database;
-use crate::database::models::{IngredientCalories, IngredientHandle, IngredientMeasurement};
+use crate::database::models::{IngredientCaloriesEntry, IngredientHandle, IngredientMeasurement};
 use eframe::egui;
 
 #[derive(Default)]
@@ -12,7 +12,7 @@ struct NewEntry {
 
 pub struct IngredientCaloriesWindow {
     ingredient: IngredientHandle,
-    ingredient_calories: Vec<IngredientCalories>,
+    ingredient_calories: Vec<IngredientCaloriesEntry>,
     new_entry: NewEntry,
 }
 
