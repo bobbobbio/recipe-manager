@@ -10,6 +10,7 @@ mod query;
 mod recipe;
 mod recipe_list;
 mod search;
+mod unit_conversion;
 
 use crate::database;
 use crate::database::models::{IngredientHandle, IngredientId, RecipeCategoryId, RecipeId};
