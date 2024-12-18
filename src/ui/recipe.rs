@@ -526,13 +526,7 @@ impl RecipeWindow {
                         });
                 });
                 strip.cell(|ui| {
-                    ui.label(format!(
-                        "Total Calories:   {:.2}",
-                        self.ingredients
-                            .iter()
-                            .filter_map(|i| i.calories())
-                            .sum::<f32>()
-                    ));
+                    ui.label(format!("Total Calories:   {:.2}", self.total_calories()));
                 });
             });
         events
@@ -584,17 +578,22 @@ impl RecipeWindow {
                                 ui.label("Total Calories:");
                             });
                             strip.cell(|ui| {
-                                ui.label(format!(
-                                    "{:.2}",
-                                    self.ingredients
-                                        .iter()
-                                        .filter_map(|i| i.calories())
-                                        .sum::<f32>()
-                                ));
+                                ui.label(format!("{:.2}", self.total_calories()));
                             });
                         });
                 });
             });
+    }
+
+    fn total_calories(&self) -> f32 {
+        if self.ingredients.is_empty() {
+            0.0
+        } else {
+            self.ingredients
+                .iter()
+                .filter_map(|i| i.calories())
+                .sum::<f32>()
+        }
     }
 
     fn update_recipe_controls(
