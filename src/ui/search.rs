@@ -13,6 +13,7 @@ pub struct SearchWidget<'a, SearchFn, ValueT> {
     search_fn: SearchFn,
     pop_up_id: egui::Id,
     hint_text: Option<egui::WidgetText>,
+    desired_width: Option<f32>,
 }
 
 impl<'a, SearchFn, ValueT> SearchWidget<'a, SearchFn, ValueT>
@@ -31,11 +32,17 @@ where
             search_fn,
             pop_up_id: egui::Id::new(id_source),
             hint_text: None,
+            desired_width: None,
         }
     }
 
     pub fn hint_text(mut self, hint_text: impl Into<egui::WidgetText>) -> Self {
         self.hint_text = Some(hint_text.into());
+        self
+    }
+
+    pub fn desired_width(mut self, desired_width: f32) -> Self {
+        self.desired_width = Some(desired_width);
         self
     }
 }
@@ -52,11 +59,15 @@ where
             value,
             search_fn,
             hint_text,
+            desired_width,
         } = self;
 
         let mut edit = egui::TextEdit::singleline(buf);
         if let Some(hint_text) = hint_text {
             edit = edit.hint_text(hint_text);
+        }
+        if let Some(desired_width) = desired_width {
+            edit = edit.desired_width(desired_width);
         }
         let edit_output = edit.show(ui);
         let mut r = edit_output.response;
