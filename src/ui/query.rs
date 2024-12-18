@@ -1,7 +1,8 @@
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientId, IngredientMeasurement, IngredientUsage, IngredientUsageId, Recipe,
-    RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle, RecipeId,
+    Ingredient, IngredientCalories, IngredientId, IngredientMeasurement, IngredientUsage,
+    IngredientUsageId, Recipe, RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle,
+    RecipeId,
 };
 use diesel::BoolExpressionMethods as _;
 use diesel::Connection as _;
@@ -19,6 +20,27 @@ pub fn add_category(conn: &mut database::Connection, new_category_name: &str) {
 
     insert_into(recipe_categories)
         .values(name.eq(new_category_name))
+        .execute(conn)
+        .unwrap();
+}
+
+pub fn add_ingredient_calories_entry(
+    conn: &mut database::Connection,
+    new_ingredient_id: IngredientId,
+    new_calories: f32,
+    new_quantity: f32,
+    new_quantity_units: Option<IngredientMeasurement>,
+) {
+    use database::schema::ingredient_calories::dsl::*;
+    use diesel::insert_into;
+
+    insert_into(ingredient_calories)
+        .values((
+            ingredient_id.eq(new_ingredient_id),
+            calories.eq(new_calories),
+            quantity.eq(new_quantity),
+            quantity_units.eq(new_quantity_units),
+        ))
         .execute(conn)
         .unwrap();
 }
@@ -403,6 +425,19 @@ pub fn get_ingredients_for_recipe(
         .inner_join(ingredients::table)
         .select((IngredientUsage::as_select(), Ingredient::as_select()))
         .order_by(ingredients::name.asc())
+        .load(conn)
+        .unwrap()
+}
+
+pub fn get_ingredient_calories(
+    conn: &mut database::Connection,
+    get_ingredient_id: IngredientId,
+) -> Vec<IngredientCalories> {
+    use database::schema::ingredient_calories;
+
+    ingredient_calories::table
+        .filter(ingredient_calories::ingredient_id.eq(get_ingredient_id))
+        .select(IngredientCalories::as_select())
         .load(conn)
         .unwrap()
 }
