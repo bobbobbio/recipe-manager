@@ -1,8 +1,8 @@
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientCalories, IngredientId, IngredientMeasurement, IngredientUsage,
-    IngredientUsageId, Recipe, RecipeCategory, RecipeCategoryId, RecipeDuration, RecipeHandle,
-    RecipeId,
+    Ingredient, IngredientCalories, IngredientCaloriesId, IngredientId, IngredientMeasurement,
+    IngredientUsage, IngredientUsageId, Recipe, RecipeCategory, RecipeCategoryId, RecipeDuration,
+    RecipeHandle, RecipeId,
 };
 use diesel::BoolExpressionMethods as _;
 use diesel::Connection as _;
@@ -41,6 +41,19 @@ pub fn add_ingredient_calories_entry(
             quantity.eq(new_quantity),
             quantity_units.eq(new_quantity_units),
         ))
+        .execute(conn)
+        .unwrap();
+}
+
+pub fn delete_ingredient_calories_entry(
+    conn: &mut database::Connection,
+    delete_id: IngredientCaloriesId,
+) {
+    use database::schema::ingredient_calories::dsl::*;
+    use diesel::delete;
+
+    delete(ingredient_calories)
+        .filter(id.eq(delete_id))
         .execute(conn)
         .unwrap();
 }

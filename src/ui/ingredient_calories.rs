@@ -44,9 +44,13 @@ impl IngredientCaloriesWindow {
                         ui.label(c.calories.to_string());
                         ui.label(c.quantity.to_string());
                         ui.label(c.quantity_units.as_ref().map(|c| c.as_str()).unwrap_or(""));
+                        if ui.button("Delete").clicked() {
+                            query::delete_ingredient_calories_entry(conn, c.id);
+                            refresh_self = true;
+                        }
+                        ui.end_row();
                     }
-                });
-                ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+
                     ui.add(egui::TextEdit::singleline(&mut self.new_entry.calories));
                     ui.add(egui::TextEdit::singleline(&mut self.new_entry.quantity));
                     egui::ComboBox::from_id_salt((
@@ -81,6 +85,7 @@ impl IngredientCaloriesWindow {
                         );
                         refresh_self = true;
                     }
+                    ui.end_row()
                 });
             });
         if refresh_self {
