@@ -345,7 +345,7 @@ impl RecipeWindow {
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(egui_extras::Column::remainder())
             .column(egui_extras::Column::remainder())
-            .column(egui_extras::Column::exact(30.0))
+            .column(egui_extras::Column::exact(40.0))
             .column(egui_extras::Column::exact(20.0))
             .column(egui_extras::Column::exact(40.0))
             .column(egui_extras::Column::exact(85.0))
@@ -396,7 +396,7 @@ impl RecipeWindow {
             .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
             .column(egui_extras::Column::remainder())
             .column(egui_extras::Column::remainder())
-            .column(egui_extras::Column::exact(30.0))
+            .column(egui_extras::Column::exact(40.0))
             .column(egui_extras::Column::exact(30.0))
             .column(egui_extras::Column::exact(60.0))
             .min_scrolled_height(0.0)
@@ -602,7 +602,9 @@ impl RecipeWindow {
                                 ui.label("Description:");
                             });
                             strip.cell(|ui| {
-                                ui.add(egui::Label::new(&self.recipe.description).wrap());
+                                egui::ScrollArea::vertical().show(ui, |ui| {
+                                    ui.add(egui::Label::new(&self.recipe.description).wrap());
+                                });
                             });
                         });
                 });
@@ -705,7 +707,7 @@ impl RecipeWindow {
         egui::Window::new(self.recipe.name.clone())
             .id(egui::Id::new(("recipe", self.recipe.id)))
             .default_height(default_height)
-            .default_width(400.0)
+            .default_width(500.0)
             .open(&mut open)
             .show(ctx, |ui| {
                 if self.edit_mode {
