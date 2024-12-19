@@ -293,9 +293,13 @@ impl RecipeSearchWindow {
                 strip.cell(|ui| {
                     if ui.button("Add").clicked() {
                         if let Some(ingredient) = &self.new_ingredient {
-                            self.to_search.push(ingredient.to_handle());
-                            self.new_ingredient_name = "".into();
-                            self.new_ingredient = None;
+                            if self.to_search.iter().any(|i| i.id == ingredient.id) {
+                                toasts.add(new_error_toast("Ingredient already in search"));
+                            } else {
+                                self.to_search.push(ingredient.to_handle());
+                                self.new_ingredient_name = "".into();
+                                self.new_ingredient = None;
+                            }
                         } else {
                             toasts.add(new_error_toast("Couldn't find ingredient"));
                         }
