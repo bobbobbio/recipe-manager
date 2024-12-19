@@ -129,6 +129,48 @@ impl SearchResultsWindow {
         Self { id, query, results }
     }
 
+    fn update_table(
+        &mut self,
+        conn: &mut database::Connection,
+        recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
+        ui: &mut egui::Ui,
+    ) {
+        if self.results.is_empty() {
+            ui.label("Nothing found");
+            return;
+        }
+
+        let available_height = ui.available_height();
+        egui_extras::TableBuilder::new(ui)
+            .id_salt(("search results table", self.id))
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(egui_extras::Column::remainder())
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height)
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.add(egui::Label::new(&self.query).wrap());
+                });
+            })
+            .body(|mut body| {
+                for recipe in &self.results {
+                    body.row(20.0, |mut row| {
+                        let mut shown = recipe_windows.contains_key(&recipe.id);
+                        row.col(|ui| {
+                            ui.toggle_value(&mut shown, recipe.name.clone());
+                        });
+
+                        if shown && !recipe_windows.contains_key(&recipe.id) {
+                            recipe_windows
+                                .insert(recipe.id, RecipeWindow::new(conn, recipe.id, false));
+                        } else if !shown {
+                            recipe_windows.remove(&recipe.id);
+                        }
+                    });
+                }
+            });
+    }
+
     pub fn update(
         &mut self,
         ctx: &egui::Context,
@@ -140,32 +182,7 @@ impl SearchResultsWindow {
             .id(egui::Id::new(("search window", self.id)))
             .open(&mut open)
             .show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    ui.label(&self.query);
-
-                    let scroll_height = ui.available_height() - 45.0;
-                    egui::ScrollArea::vertical()
-                        .auto_shrink(false)
-                        .max_height(scroll_height)
-                        .show(ui, |ui| {
-                            for recipe in &self.results {
-                                let mut shown = recipe_windows.contains_key(&recipe.id);
-                                ui.toggle_value(&mut shown, recipe.name.clone());
-
-                                if shown && !recipe_windows.contains_key(&recipe.id) {
-                                    recipe_windows.insert(
-                                        recipe.id,
-                                        RecipeWindow::new(conn, recipe.id, false),
-                                    );
-                                } else if !shown {
-                                    recipe_windows.remove(&recipe.id);
-                                }
-                            }
-                            if self.results.is_empty() {
-                                ui.label("Nothing found");
-                            }
-                        });
-                });
+                self.update_table(conn, recipe_windows, ui);
             });
         !open
     }
