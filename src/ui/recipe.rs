@@ -586,13 +586,15 @@ impl RecipeWindow {
     }
 
     fn total_calories(&self) -> f32 {
-        if self.ingredients.is_empty() {
+        let total = self
+            .ingredients
+            .iter()
+            .filter_map(|i| i.calories())
+            .sum::<f32>();
+        if total == -0.0 {
             0.0
         } else {
-            self.ingredients
-                .iter()
-                .filter_map(|i| i.calories())
-                .sum::<f32>()
+            total
         }
     }
 
