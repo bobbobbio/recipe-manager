@@ -321,6 +321,10 @@ impl IngredientListWindow {
                     });
             });
 
+        if !self.edit_mode {
+            self.ingredient_being_edited = None;
+        }
+
         if refresh_self {
             *self = Self::new(conn, self.edit_mode);
         }
