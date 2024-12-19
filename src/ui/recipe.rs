@@ -240,7 +240,7 @@ impl RecipeWindow {
     ) {
         let ingredients = std::mem::take(&mut self.ingredients);
         for usage in &ingredients {
-            body.row(15.0, |mut row| {
+            body.row(20.0, |mut row| {
                 if self.update_ingredient_editing(conn, toasts, usage, &mut row, refresh_self) {
                     return;
                 }
@@ -643,7 +643,7 @@ impl RecipeWindow {
         let spacing = style.spacing.item_spacing.y;
 
         let separator_height = 6.0;
-        let table_height = 20.0 + (15.0 + spacing) * self.ingredients.len() as f32 + spacing;
+        let table_height = 20.0 + (20.0 + spacing) * self.ingredients.len() as f32 + spacing;
         let info_height = (text_height + spacing) * 6.0 + separator_height;
         let controls_height = button_height + spacing + separator_height;
 
