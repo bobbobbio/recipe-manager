@@ -418,23 +418,47 @@ pub fn update_ingredient(
         .unwrap();
 }
 
-pub fn search_recipes_by_ingredients(
+pub fn search_recipes_including_any_ingredient(
     conn: &mut database::Connection,
     ingredient_ids: Vec<IngredientId>,
 ) -> Vec<RecipeHandle> {
     use database::schema::{ingredient_usages, ingredients, recipes};
+
+    recipes::table
+        .inner_join(ingredient_usages::table.on(ingredient_usages::recipe_id.eq(recipes::id)))
+        .inner_join(ingredients::table.on(ingredient_usages::ingredient_id.eq(ingredients::id)))
+        .filter(ingredients::id.eq_any(ingredient_ids))
+        .select(RecipeHandle::as_select())
+        .distinct()
+        .load(conn)
+        .unwrap()
+}
+
+pub fn search_recipes_including_at_least_ingredients(
+    conn: &mut database::Connection,
+    ingredient_ids: Vec<IngredientId>,
+    at_least: usize,
+) -> Vec<RecipeHandle> {
+    use database::schema::{ingredient_usages, ingredients, recipes};
     use diesel::dsl::count;
 
-    let num_ingredients = ingredient_ids.len() as i64;
     recipes::table
         .inner_join(ingredient_usages::table.on(ingredient_usages::recipe_id.eq(recipes::id)))
         .inner_join(ingredients::table.on(ingredient_usages::ingredient_id.eq(ingredients::id)))
         .filter(ingredients::id.eq_any(ingredient_ids))
         .select(RecipeHandle::as_select())
         .group_by(recipes::id)
-        .having(count(ingredient_usages::ingredient_id).eq(num_ingredients))
+        .having(count(ingredient_usages::ingredient_id).ge(at_least as i64))
         .load(conn)
         .unwrap()
+}
+
+pub fn search_recipes_including_all_ingredient(
+    conn: &mut database::Connection,
+    ingredient_ids: Vec<IngredientId>,
+) -> Vec<RecipeHandle> {
+    let num_ingredients = ingredient_ids.len();
+    search_recipes_including_at_least_ingredients(conn, ingredient_ids, num_ingredients)
 }
 
 pub fn get_ingredients_for_recipe(

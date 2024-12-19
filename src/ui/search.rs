@@ -3,6 +3,7 @@ use crate::database::{
     self,
     models::{Ingredient, IngredientHandle, RecipeHandle, RecipeId},
 };
+use derive_more::Display;
 use eframe::egui;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -170,12 +171,29 @@ impl SearchResultsWindow {
     }
 }
 
+#[derive(Copy, Clone, Display, PartialEq, Eq)]
+pub enum IngredientSearchControl {
+    #[display("all")]
+    All,
+    #[display("any")]
+    Any,
+    #[display("at least")]
+    AtLeast(usize),
+}
+
+impl IngredientSearchControl {
+    fn iter() -> [Self; 3] {
+        [Self::All, Self::Any, Self::AtLeast(2)]
+    }
+}
+
 pub struct RecipeSearchWindow {
     to_search: Vec<IngredientHandle>,
 
     new_ingredient_name: String,
     new_ingredient: Option<Ingredient>,
     cached_ingredient_search: Option<query::CachedQuery<Ingredient>>,
+    control: IngredientSearchControl,
 }
 
 impl RecipeSearchWindow {
@@ -185,30 +203,55 @@ impl RecipeSearchWindow {
             new_ingredient_name: String::new(),
             new_ingredient: None,
             cached_ingredient_search: None,
+            control: IngredientSearchControl::All,
         }
     }
 
-    pub fn update(
+    fn update_table(&mut self, ui: &mut egui::Ui) {
+        let available_height = ui.available_height();
+        egui_extras::TableBuilder::new(ui)
+            .id_salt("")
+            .striped(true)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(egui_extras::Column::remainder())
+            .column(egui_extras::Column::exact(60.0))
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height)
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.heading("Ingredient");
+                });
+                header.col(|ui| {
+                    ui.heading("");
+                });
+            })
+            .body(|mut body| {
+                for ingredient in std::mem::take(&mut self.to_search) {
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(&ingredient.name);
+                        });
+                        row.col(|ui| {
+                            if !ui.button("Remove").clicked() {
+                                self.to_search.push(ingredient);
+                            }
+                        });
+                    });
+                }
+            });
+    }
+
+    fn update_add_ingredient(
         &mut self,
-        ctx: &egui::Context,
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
-        mut search_for_ingredients: impl FnMut(&mut database::Connection, Vec<IngredientHandle>),
-    ) -> bool {
-        let mut open = true;
-        egui::Window::new("Recipe Search")
-            .open(&mut open)
-            .show(ctx, |ui| {
-                egui::Grid::new("Recipe Search").show(ui, |ui| {
-                    for ingredient in std::mem::take(&mut self.to_search) {
-                        ui.label(&ingredient.name);
-                        if !ui.button("Remove").clicked() {
-                            self.to_search.push(ingredient);
-                        }
-                        ui.end_row();
-                    }
-                });
-                ui.horizontal(|ui| {
+        ui: &mut egui::Ui,
+    ) {
+        egui_extras::StripBuilder::new(ui)
+            .size(egui_extras::Size::remainder())
+            .size(egui_extras::Size::exact(40.0))
+            .horizontal(|mut strip| {
+                strip.cell(|ui| {
                     ui.add(
                         SearchWidget::new(
                             "recipe search ingredient name",
@@ -222,8 +265,11 @@ impl RecipeSearchWindow {
                                 )
                             },
                         )
-                        .hint_text("search for ingredient"),
+                        .hint_text("search for ingredient")
+                        .desired_width(f32::INFINITY),
                     );
+                });
+                strip.cell(|ui| {
                     if ui.button("Add").clicked() {
                         if let Some(ingredient) = &self.new_ingredient {
                             self.to_search.push(ingredient.to_handle());
@@ -234,11 +280,89 @@ impl RecipeSearchWindow {
                         }
                     }
                 });
-                if !self.to_search.is_empty() && ui.button("Search").clicked() {
-                    search_for_ingredients(conn, self.to_search.clone());
-                }
             });
+    }
 
+    fn update_do_search(
+        &mut self,
+        conn: &mut database::Connection,
+        mut search_for_ingredients: impl FnMut(
+            &mut database::Connection,
+            IngredientSearchControl,
+            Vec<IngredientHandle>,
+        ),
+        ui: &mut egui::Ui,
+    ) {
+        ui.horizontal(|ui| {
+            ui.label("for recipes including");
+            egui::ComboBox::from_id_salt("recipe search combo-box")
+                .selected_text(self.control.to_string())
+                .show_ui(ui, |ui| {
+                    for c in IngredientSearchControl::iter() {
+                        let s = c.to_string();
+                        ui.selectable_value(&mut self.control, c, s);
+                    }
+                });
+            if let IngredientSearchControl::AtLeast(v) = &mut self.control {
+                ui.add(egui::DragValue::new(v).speed(1));
+            }
+            ui.label("of the listed ingredient");
+            if ui
+                .add_enabled(!self.to_search.is_empty(), egui::Button::new("Search"))
+                .clicked()
+            {
+                search_for_ingredients(conn, self.control, self.to_search.clone());
+            }
+        });
+    }
+
+    pub fn update(
+        &mut self,
+        ctx: &egui::Context,
+        conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
+        search_for_ingredients: impl FnMut(
+            &mut database::Connection,
+            IngredientSearchControl,
+            Vec<IngredientHandle>,
+        ),
+    ) -> bool {
+        let style = ctx.style();
+        let button_height = (egui::TextStyle::Button.resolve(&style).size
+            + style.spacing.button_padding.y as f32 * 2.0)
+            .max(style.spacing.interact_size.y);
+        let spacing = style.spacing.item_spacing.y;
+
+        let separator_height = 6.0;
+        let add_ingredient_height = button_height + spacing + separator_height + spacing;
+        let search_height = button_height + spacing + separator_height;
+
+        let mut open = true;
+        egui::Window::new("Recipe Search")
+            .open(&mut open)
+            .default_height(200.0)
+            .default_width(300.0)
+            .show(ctx, |ui| {
+                egui_extras::StripBuilder::new(ui)
+                    .size(egui_extras::Size::remainder())
+                    .size(egui_extras::Size::exact(add_ingredient_height))
+                    .size(egui_extras::Size::exact(search_height))
+                    .vertical(|mut strip| {
+                        strip.cell(|ui| {
+                            egui::ScrollArea::horizontal().show(ui, |ui| {
+                                self.update_table(ui);
+                            });
+                        });
+                        strip.cell(|ui| {
+                            ui.separator();
+                            self.update_add_ingredient(conn, toasts, ui);
+                        });
+                        strip.cell(|ui| {
+                            ui.separator();
+                            self.update_do_search(conn, search_for_ingredients, ui);
+                        });
+                    })
+            });
         !open
     }
 }

@@ -24,7 +24,7 @@ use ingredient_calories::IngredientCaloriesWindow;
 use ingredient_list::IngredientListWindow;
 use recipe::RecipeWindow;
 use recipe_list::RecipeListWindow;
-use search::{RecipeSearchWindow, SearchResultsWindow};
+use search::{IngredientSearchControl, RecipeSearchWindow, SearchResultsWindow};
 use std::collections::HashMap;
 use std::mem;
 
@@ -81,14 +81,34 @@ impl RecipeManager {
         conn: &mut database::Connection,
         search_result_windows: &mut Vec<SearchResultsWindow>,
         next_search_results_window_id: &mut u64,
+        control: IngredientSearchControl,
         ingredients: Vec<IngredientHandle>,
     ) {
-        let results =
-            query::search_recipes_by_ingredients(conn, ingredients.iter().map(|i| i.id).collect());
-        let mut query = format!("Recipes using \"{}\"", &ingredients[0].name);
-        for i in &ingredients[1..] {
-            query += &format!(" and \"{}\"", &i.name);
-        }
+        let ingredient_ids: Vec<_> = ingredients.iter().map(|i| i.id).collect();
+        let qualifier;
+        let results = match control {
+            IngredientSearchControl::All => {
+                qualifier = "all".into();
+                query::search_recipes_including_all_ingredient(conn, ingredient_ids)
+            }
+            IngredientSearchControl::Any => {
+                qualifier = "any".into();
+                query::search_recipes_including_any_ingredient(conn, ingredient_ids)
+            }
+            IngredientSearchControl::AtLeast(at_least) => {
+                qualifier = format!("at least {at_least}");
+                query::search_recipes_including_at_least_ingredients(conn, ingredient_ids, at_least)
+            }
+        };
+        let query = if ingredients.len() == 1 {
+            format!("Recipes using \"{}\"", &ingredients[0].name)
+        } else {
+            let mut query = format!("Recipes using {qualifier} of \"{}\"", &ingredients[0].name);
+            for i in &ingredients[1..] {
+                query += &format!(", \"{}\"", &i.name);
+            }
+            query
+        };
 
         search_result_windows.push(SearchResultsWindow::new(
             *next_search_results_window_id,
@@ -235,6 +255,7 @@ impl RecipeManager {
                     conn,
                     &mut self.search_result_windows,
                     &mut self.next_search_results_window_id,
+                    IngredientSearchControl::All,
                     ingredients,
                 )
             };
@@ -278,11 +299,12 @@ impl RecipeManager {
 
     fn update_recipe_search_window(&mut self, ctx: &egui::Context) {
         if let Some(window) = &mut self.recipe_search_window {
-            let search_by_ingredients = |conn: &mut database::Connection, ingredients| {
+            let search_by_ingredients = |conn: &mut database::Connection, control, ingredients| {
                 Self::ingredient_search(
                     conn,
                     &mut self.search_result_windows,
                     &mut self.next_search_results_window_id,
+                    control,
                     ingredients,
                 )
             };
