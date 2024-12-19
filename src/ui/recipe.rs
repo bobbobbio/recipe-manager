@@ -1,15 +1,17 @@
 use super::{
     calendar::{this_week, RecipeWeek},
+    ingredient_calories::IngredientCaloriesWindow,
     new_error_toast, query,
     search::SearchWidget,
     unit_conversion,
 };
 use crate::database;
 use crate::database::models::{
-    Ingredient, IngredientCaloriesEntry, IngredientMeasurement, IngredientUsageId, Recipe,
-    RecipeCategoryId, RecipeDuration, RecipeId,
+    Ingredient, IngredientCaloriesEntry, IngredientId, IngredientMeasurement, IngredientUsageId,
+    Recipe, RecipeCategoryId, RecipeDuration, RecipeId,
 };
 use eframe::egui;
+use std::collections::HashMap;
 
 struct IngredientBeingEdited {
     usage_id: IngredientUsageId,
@@ -122,6 +124,7 @@ impl RecipeWindow {
         toasts: &mut egui_toast::Toasts,
         usage: &RecipeIngredient,
         row: &mut egui_extras::TableRow<'_, '_>,
+        ingredient_calories_windows: &mut HashMap<IngredientId, IngredientCaloriesWindow>,
         refresh_self: &mut bool,
     ) -> bool {
         let Some(e) = &mut self.ingredient_being_edited else {
@@ -163,7 +166,20 @@ impl RecipeWindow {
                     ui.selectable_value(&mut e.quantity_units, None, "");
                 });
         });
-        row.col(|_| {});
+        row.col(|ui| {
+            if let Some(ingredient) = &e.ingredient {
+                let mut calories_shown = ingredient_calories_windows.contains_key(&ingredient.id);
+                ui.toggle_value(&mut calories_shown, "edit");
+                if calories_shown && !ingredient_calories_windows.contains_key(&ingredient.id) {
+                    ingredient_calories_windows.insert(
+                        ingredient.id,
+                        IngredientCaloriesWindow::new(conn, ingredient.to_handle()),
+                    );
+                } else if !calories_shown {
+                    ingredient_calories_windows.remove(&ingredient.id);
+                }
+            }
+        });
         row.col(|ui| {
             if ui.button("Save").clicked() {
                 if e.ingredient.is_some() {
@@ -236,12 +252,20 @@ impl RecipeWindow {
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
         body: &mut egui_extras::TableBody<'_>,
+        ingredient_calories_windows: &mut HashMap<IngredientId, IngredientCaloriesWindow>,
         refresh_self: &mut bool,
     ) {
         let ingredients = std::mem::take(&mut self.ingredients);
         for usage in &ingredients {
             body.row(20.0, |mut row| {
-                if self.update_ingredient_editing(conn, toasts, usage, &mut row, refresh_self) {
+                if self.update_ingredient_editing(
+                    conn,
+                    toasts,
+                    usage,
+                    &mut row,
+                    ingredient_calories_windows,
+                    refresh_self,
+                ) {
                     return;
                 }
                 self.update_ingredient_row(conn, usage, &mut row, refresh_self);
@@ -311,6 +335,7 @@ impl RecipeWindow {
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
         ui: &mut egui::Ui,
+        ingredient_calories_windows: &mut HashMap<IngredientId, IngredientCaloriesWindow>,
         refresh_self: &mut bool,
     ) {
         let available_height = ui.available_height();
@@ -347,7 +372,13 @@ impl RecipeWindow {
                 });
             })
             .body(|mut body| {
-                self.update_ingredients_table(conn, toasts, &mut body, refresh_self);
+                self.update_ingredients_table(
+                    conn,
+                    toasts,
+                    &mut body,
+                    ingredient_calories_windows,
+                    refresh_self,
+                );
             });
     }
 
@@ -388,7 +419,13 @@ impl RecipeWindow {
                 });
             })
             .body(|mut body| {
-                self.update_ingredients_table(conn, toasts, &mut body, refresh_self);
+                self.update_ingredients_table(
+                    conn,
+                    toasts,
+                    &mut body,
+                    &mut Default::default(),
+                    refresh_self,
+                );
             });
     }
 
@@ -634,6 +671,7 @@ impl RecipeWindow {
         ctx: &egui::Context,
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
+        ingredient_calories_windows: &mut HashMap<IngredientId, IngredientCaloriesWindow>,
     ) -> Vec<UpdateEvent> {
         let style = ctx.style();
         let text_height = egui::TextStyle::Body
@@ -678,6 +716,7 @@ impl RecipeWindow {
                                         conn,
                                         toasts,
                                         ui,
+                                        ingredient_calories_windows,
                                         &mut refresh_self,
                                     );
                                 });

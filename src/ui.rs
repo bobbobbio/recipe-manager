@@ -129,7 +129,12 @@ impl RecipeManager {
         let mut recipe_scheduled = vec![];
         for (id, mut recipe) in mem::take(&mut self.recipes) {
             let mut closed = false;
-            let events = recipe.update(ctx, &mut self.conn, &mut self.toasts);
+            let events = recipe.update(
+                ctx,
+                &mut self.conn,
+                &mut self.toasts,
+                &mut self.ingredient_calories_windows,
+            );
             for e in events {
                 match e {
                     recipe::UpdateEvent::Closed => closed = true,
