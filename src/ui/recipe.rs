@@ -526,7 +526,7 @@ impl RecipeWindow {
                         });
                 });
                 strip.cell(|ui| {
-                    ui.label(format!("Total Calories:   {:.2}", self.total_calories()));
+                    ui.label(format!("Total Calories:   {}", self.total_calories()));
                 });
             });
         events
@@ -578,24 +578,25 @@ impl RecipeWindow {
                                 ui.label("Total Calories:");
                             });
                             strip.cell(|ui| {
-                                ui.label(format!("{:.2}", self.total_calories()));
+                                ui.label(format!("{}", self.total_calories()));
                             });
                         });
                 });
             });
     }
 
-    fn total_calories(&self) -> f32 {
-        let total = self
+    fn total_calories(&self) -> String {
+        use thousands::Separable;
+
+        let mut total = self
             .ingredients
             .iter()
             .filter_map(|i| i.calories())
             .sum::<f32>();
         if total == -0.0 {
-            0.0
-        } else {
-            total
+            total = 0.0;
         }
+        total.separate_with_commas()
     }
 
     fn update_recipe_controls(
