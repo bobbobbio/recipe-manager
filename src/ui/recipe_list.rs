@@ -8,6 +8,11 @@ use diesel::SelectableHelper as _;
 use eframe::egui;
 use std::collections::HashMap;
 
+pub enum UpdateEvent {
+    Closed,
+    RecipeDeleted(RecipeId),
+}
+
 pub struct RecipeListWindow {
     recipe_category: RecipeCategory,
     recipes: Vec<RecipeHandle>,
@@ -48,7 +53,8 @@ impl RecipeListWindow {
         ctx: &egui::Context,
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
-    ) -> bool {
+    ) -> Vec<UpdateEvent> {
+        let mut events = vec![];
         let mut open = true;
         let mut refresh_self = false;
         egui::Window::new(&self.recipe_category.name)
@@ -72,6 +78,7 @@ impl RecipeListWindow {
                                     if self.edit_mode {
                                         if ui.button("Delete").clicked() {
                                             query::delete_recipe(conn, *id);
+                                            events.push(UpdateEvent::RecipeDeleted(*id));
                                             refresh_self = true;
                                             shown = false;
                                         }
@@ -108,7 +115,11 @@ impl RecipeListWindow {
             *self = Self::new(conn, self.recipe_category.clone(), self.edit_mode);
         }
 
-        !open
+        if !open {
+            events.push(UpdateEvent::Closed);
+        }
+
+        events
     }
 
     pub fn category_name_changed(&mut self, new_name: String) {

@@ -137,7 +137,18 @@ impl RecipeManager {
 
     fn update_recipe_list_windows(&mut self, ctx: &egui::Context) {
         for (id, mut list) in mem::take(&mut self.recipe_lists) {
-            let closed = list.update(ctx, &mut self.conn, &mut self.recipes);
+            let mut closed = false;
+            let events = list.update(ctx, &mut self.conn, &mut self.recipes);
+            for event in events {
+                match event {
+                    recipe_list::UpdateEvent::Closed => closed = true,
+                    recipe_list::UpdateEvent::RecipeDeleted(id) => {
+                        for s in &mut self.search_result_windows {
+                            s.recipe_deleted(id);
+                        }
+                    }
+                }
+            }
 
             if !closed {
                 self.recipe_lists.insert(id, list);

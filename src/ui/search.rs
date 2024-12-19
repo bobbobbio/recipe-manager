@@ -186,6 +186,10 @@ impl SearchResultsWindow {
             });
         !open
     }
+
+    pub fn recipe_deleted(&mut self, recipe_id: RecipeId) {
+        self.results.retain(|handle| handle.id != recipe_id);
+    }
 }
 
 #[derive(Copy, Clone, Display, PartialEq, Eq)]
