@@ -136,6 +136,7 @@ impl SearchResultsWindow {
         ui: &mut egui::Ui,
     ) {
         if self.results.is_empty() {
+            ui.add(egui::Label::new(&self.query).wrap());
             ui.label("Nothing found");
             return;
         }
@@ -238,14 +239,6 @@ impl RecipeSearchWindow {
             .column(egui_extras::Column::exact(60.0))
             .min_scrolled_height(0.0)
             .max_scroll_height(available_height)
-            .header(20.0, |mut header| {
-                header.col(|ui| {
-                    ui.heading("Ingredient");
-                });
-                header.col(|ui| {
-                    ui.heading("");
-                });
-            })
             .body(|mut body| {
                 for ingredient in std::mem::take(&mut self.to_search) {
                     body.row(20.0, |mut row| {
@@ -318,27 +311,36 @@ impl RecipeSearchWindow {
         ),
         ui: &mut egui::Ui,
     ) {
-        ui.horizontal(|ui| {
-            ui.label("for recipes including");
-            egui::ComboBox::from_id_salt("recipe search combo-box")
-                .selected_text(self.control.to_string())
-                .show_ui(ui, |ui| {
-                    for c in IngredientSearchControl::iter() {
-                        let s = c.to_string();
-                        ui.selectable_value(&mut self.control, c, s);
+        egui_extras::StripBuilder::new(ui)
+            .size(egui_extras::Size::remainder())
+            .size(egui_extras::Size::exact(50.0))
+            .horizontal(|mut strip| {
+                strip.cell(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("for recipes including");
+                        egui::ComboBox::from_id_salt("recipe search combo-box")
+                            .selected_text(self.control.to_string())
+                            .show_ui(ui, |ui| {
+                                for c in IngredientSearchControl::iter() {
+                                    let s = c.to_string();
+                                    ui.selectable_value(&mut self.control, c, s);
+                                }
+                            });
+                        if let IngredientSearchControl::AtLeast(v) = &mut self.control {
+                            ui.add(egui::DragValue::new(v).speed(1));
+                        }
+                        ui.label("of the listed ingredient");
+                    });
+                });
+                strip.cell(|ui| {
+                    if ui
+                        .add_enabled(!self.to_search.is_empty(), egui::Button::new("Search"))
+                        .clicked()
+                    {
+                        search_for_ingredients(conn, self.control, self.to_search.clone());
                     }
                 });
-            if let IngredientSearchControl::AtLeast(v) = &mut self.control {
-                ui.add(egui::DragValue::new(v).speed(1));
-            }
-            ui.label("of the listed ingredient");
-            if ui
-                .add_enabled(!self.to_search.is_empty(), egui::Button::new("Search"))
-                .clicked()
-            {
-                search_for_ingredients(conn, self.control, self.to_search.clone());
-            }
-        });
+            });
     }
 
     pub fn update(
