@@ -251,7 +251,7 @@ impl IngredientListWindow {
             egui_extras::StripBuilder::new(ui)
                 .size(egui_extras::Size::exact(30.0))
                 .size(egui_extras::Size::remainder())
-                .size(egui_extras::Size::exact(30.0))
+                .size(egui_extras::Size::exact(35.0))
                 .horizontal(|mut strip| {
                     strip.cell(|ui| {
                         ui.toggle_value(&mut self.edit_mode, "Edit");
