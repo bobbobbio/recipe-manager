@@ -1,5 +1,6 @@
 // Copyright 2023 Remi Bernotavicius
 
+mod about;
 mod calendar;
 mod category_list;
 mod generate_rtf;
@@ -14,6 +15,7 @@ mod unit_conversion;
 
 use crate::database;
 use crate::database::models::{IngredientHandle, IngredientId, RecipeCategoryId, RecipeId};
+use about::AboutWindow;
 use calendar::CalendarWindow;
 use category_list::CategoryListWindow;
 use eframe::egui;
@@ -51,6 +53,7 @@ pub struct RecipeManager {
     next_search_results_window_id: u64,
     recipe_search_window: Option<RecipeSearchWindow>,
     ingredient_calories_windows: HashMap<IngredientId, IngredientCaloriesWindow>,
+    about_window: Option<AboutWindow>,
 }
 
 impl RecipeManager {
@@ -67,6 +70,7 @@ impl RecipeManager {
             next_search_results_window_id: 0,
             recipe_search_window: None,
             ingredient_calories_windows: Default::default(),
+            about_window: None,
             toasts: egui_toast::Toasts::new()
                 .anchor(egui::Align2::LEFT_BOTTOM, (10.0, 10.0))
                 .direction(egui::Direction::BottomUp),
@@ -101,6 +105,14 @@ impl RecipeManager {
             &mut self.toasts,
             &mut self.recipe_lists,
         );
+    }
+
+    fn update_about_window(&mut self, ctx: &egui::Context) {
+        if let Some(window) = &mut self.about_window {
+            if window.update(ctx) {
+                self.about_window = None;
+            }
+        }
     }
 
     fn update_recipe_list_windows(&mut self, ctx: &egui::Context) {
@@ -178,6 +190,12 @@ impl RecipeManager {
                     if ui.button("Recipe Search").clicked() {
                         if self.recipe_search_window.is_none() {
                             self.recipe_search_window = Some(RecipeSearchWindow::new());
+                        }
+                        ui.close_menu();
+                    }
+                    if ui.button("About").clicked() {
+                        if self.about_window.is_none() {
+                            self.about_window = Some(AboutWindow::new());
                         }
                         ui.close_menu();
                     }
@@ -315,6 +333,7 @@ impl eframe::App for RecipeManager {
         self.update_search_result_windows(ctx);
         self.update_recipe_search_window(ctx);
         self.update_ingredient_calories_windows(ctx);
+        self.update_about_window(ctx);
         self.toasts.show(ctx);
     }
 }
