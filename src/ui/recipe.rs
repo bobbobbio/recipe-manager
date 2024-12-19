@@ -366,8 +366,8 @@ impl RecipeWindow {
             .column(egui_extras::Column::remainder())
             .column(egui_extras::Column::remainder())
             .column(egui_extras::Column::exact(30.0))
-            .column(egui_extras::Column::exact(20.0))
-            .column(egui_extras::Column::exact(40.0))
+            .column(egui_extras::Column::exact(30.0))
+            .column(egui_extras::Column::exact(60.0))
             .min_scrolled_height(0.0)
             .max_scroll_height(available_height)
             .header(20.0, |mut header| {
