@@ -477,14 +477,11 @@ pub fn get_ingredient_calories_many(
         return vec![];
     }
 
-    let mut query = ingredient_calories::table
+    ingredient_calories::table
         .select(IngredientCaloriesEntry::as_select())
-        .into_boxed();
-    for get_ingredient_id in get_ingredient_ids {
-        query = query.or_filter(ingredient_calories::ingredient_id.eq(get_ingredient_id));
-    }
-
-    query.load(conn).unwrap()
+        .filter(ingredient_calories::ingredient_id.eq_any(get_ingredient_ids))
+        .load(conn)
+        .unwrap()
 }
 
 pub fn get_recipe(
