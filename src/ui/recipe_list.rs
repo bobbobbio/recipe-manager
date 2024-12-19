@@ -48,12 +48,92 @@ impl RecipeListWindow {
         }
     }
 
+    fn update_table(
+        &mut self,
+        conn: &mut database::Connection,
+        recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
+        ui: &mut egui::Ui,
+        refresh_self: &mut bool,
+    ) -> Vec<UpdateEvent> {
+        let mut events = vec![];
+
+        let available_height = ui.available_height();
+        egui_extras::TableBuilder::new(ui)
+            .id_salt(("recipe category list table", self.recipe_category.id))
+            .striped(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(egui_extras::Column::remainder())
+            .column(egui_extras::Column::exact(50.0))
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height)
+            .body(|mut body| {
+                for RecipeHandle { name, id } in &self.recipes {
+                    body.row(20.0, |mut row| {
+                        let mut shown = recipe_windows.contains_key(&id);
+                        row.col(|ui| {
+                            ui.toggle_value(&mut shown, name.clone());
+                        });
+
+                        row.col(|ui| {
+                            if self.edit_mode {
+                                if ui.button("Delete").clicked() {
+                                    query::delete_recipe(conn, *id);
+                                    events.push(UpdateEvent::RecipeDeleted(*id));
+                                    *refresh_self = true;
+                                    shown = false;
+                                }
+                            }
+                        });
+
+                        if shown && !recipe_windows.contains_key(&id) {
+                            recipe_windows.insert(*id, RecipeWindow::new(conn, *id, false));
+                        } else if !shown {
+                            recipe_windows.remove(id);
+                        }
+                    });
+                }
+            });
+        events
+    }
+
+    fn update_add_recipe(
+        &mut self,
+        conn: &mut database::Connection,
+        ui: &mut egui::Ui,
+        refresh_self: &mut bool,
+    ) {
+        ui.horizontal(|ui| {
+            ui.toggle_value(&mut self.edit_mode, "Edit");
+            if self.edit_mode {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.new_recipe_name)
+                        .hint_text("recipe name")
+                        .desired_width(ui.available_width() - 100.0),
+                );
+                if ui.button("New Recipe").clicked() {
+                    query::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
+                    self.new_recipe_name = "".into();
+                    *refresh_self = true;
+                }
+            }
+        });
+    }
+
     pub fn update(
         &mut self,
         ctx: &egui::Context,
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
     ) -> Vec<UpdateEvent> {
+        let style = ctx.style();
+        let button_height = (egui::TextStyle::Button.resolve(&style).size
+            + style.spacing.button_padding.y as f32 * 2.0)
+            .max(style.spacing.interact_size.y);
+        let spacing = style.spacing.item_spacing.y;
+
+        let separator_height = 6.0;
+        let add_recipe_height = button_height + spacing + separator_height + 2.0;
+
         let mut events = vec![];
         let mut open = true;
         let mut refresh_self = false;
@@ -64,51 +144,23 @@ impl RecipeListWindow {
             )))
             .open(&mut open)
             .show(ctx, |ui| {
-                let scroll_height = ui.available_height() - 35.0;
-                egui::ScrollArea::vertical()
-                    .auto_shrink(false)
-                    .max_height(scroll_height)
-                    .show(ui, |ui| {
-                        egui::Grid::new(("recipe category list grid", self.recipe_category.id))
-                            .show(ui, |ui| {
-                                for RecipeHandle { name, id } in &self.recipes {
-                                    let mut shown = recipe_windows.contains_key(&id);
-                                    ui.toggle_value(&mut shown, name.clone());
-
-                                    if self.edit_mode {
-                                        if ui.button("Delete").clicked() {
-                                            query::delete_recipe(conn, *id);
-                                            events.push(UpdateEvent::RecipeDeleted(*id));
-                                            refresh_self = true;
-                                            shown = false;
-                                        }
-                                    }
-                                    ui.end_row();
-
-                                    if shown && !recipe_windows.contains_key(&id) {
-                                        recipe_windows
-                                            .insert(*id, RecipeWindow::new(conn, *id, false));
-                                    } else if !shown {
-                                        recipe_windows.remove(id);
-                                    }
-                                }
-                            });
+                egui_extras::StripBuilder::new(ui)
+                    .size(egui_extras::Size::remainder())
+                    .size(egui_extras::Size::exact(add_recipe_height))
+                    .vertical(|mut strip| {
+                        strip.cell(|ui| {
+                            events.extend(self.update_table(
+                                conn,
+                                recipe_windows,
+                                ui,
+                                &mut refresh_self,
+                            ));
+                        });
+                        strip.cell(|ui| {
+                            ui.separator();
+                            self.update_add_recipe(conn, ui, &mut refresh_self);
+                        });
                     });
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.toggle_value(&mut self.edit_mode, "Edit");
-                    if self.edit_mode {
-                        ui.add(
-                            egui::TextEdit::singleline(&mut self.new_recipe_name)
-                                .desired_width(ui.available_width() - 100.0),
-                        );
-                        if ui.button("Add").clicked() {
-                            query::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
-                            self.new_recipe_name = "".into();
-                            refresh_self = true;
-                        }
-                    }
-                });
             });
 
         if refresh_self {

@@ -34,6 +34,132 @@ impl CategoryListWindow {
         }
     }
 
+    fn update_table_contents(
+        &mut self,
+        conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
+        recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
+        body: &mut egui_extras::TableBody<'_>,
+        refresh_self: &mut bool,
+    ) {
+        for RecipeCategory { name, id: cat_id } in &self.categories {
+            if let Some(e) = &mut self.category_being_edited {
+                if e.id == *cat_id {
+                    body.row(20.0, |mut row| {
+                        row.col(|ui| {
+                            ui.add(egui::TextEdit::singleline(&mut e.name));
+                        });
+                        row.col(|ui| {
+                            if ui.button("Save").clicked() {
+                                query::edit_category(conn, e.id, &e.name);
+                                if let Some(w) = recipe_list_windows.get_mut(&e.id) {
+                                    w.category_name_changed(e.name.clone());
+                                }
+                                *refresh_self = true;
+                            }
+                        });
+                    });
+                    continue;
+                }
+            }
+
+            body.row(20.0, |mut row| {
+                let mut shown = recipe_list_windows.contains_key(&cat_id);
+                row.col(|ui| {
+                    ui.toggle_value(&mut shown, name.clone());
+                });
+                if self.edit_mode {
+                    row.col(|ui| {
+                        if ui.button("Edit").clicked() {
+                            self.category_being_edited = Some(CategoryBeingEdited {
+                                id: *cat_id,
+                                name: name.clone(),
+                            });
+                        }
+                        if ui.button("Delete").clicked() {
+                            if query::delete_category(conn, *cat_id) {
+                                *refresh_self = true;
+                                shown = false;
+                            } else {
+                                toasts.add(egui_toast::Toast {
+                                    text: "Couldn't delete category, it still contains recipes"
+                                        .into(),
+                                    kind: egui_toast::ToastKind::Error,
+                                    options: egui_toast::ToastOptions::default()
+                                        .duration_in_seconds(3.0)
+                                        .show_progress(false)
+                                        .show_icon(true),
+                                    ..Default::default()
+                                });
+                            }
+                        }
+                    });
+                }
+
+                if shown && !recipe_list_windows.contains_key(&cat_id) {
+                    let cat = RecipeCategory {
+                        id: *cat_id,
+                        name: name.clone(),
+                    };
+                    recipe_list_windows.insert(*cat_id, RecipeListWindow::new(conn, cat, false));
+                } else if !shown {
+                    recipe_list_windows.remove(cat_id);
+                }
+            });
+        }
+    }
+
+    fn update_table(
+        &mut self,
+        conn: &mut database::Connection,
+        toasts: &mut egui_toast::Toasts,
+        recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
+        ui: &mut egui::Ui,
+        refresh_self: &mut bool,
+    ) {
+        let available_height = ui.available_height();
+        egui_extras::TableBuilder::new(ui)
+            .id_salt("category table")
+            .striped(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(egui_extras::Column::remainder())
+            .column(egui_extras::Column::exact(90.0))
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height)
+            .body(|mut body| {
+                self.update_table_contents(
+                    conn,
+                    toasts,
+                    recipe_list_windows,
+                    &mut body,
+                    refresh_self,
+                );
+            });
+    }
+
+    fn update_add_category(
+        &mut self,
+        conn: &mut database::Connection,
+        ui: &mut egui::Ui,
+        refresh_self: &mut bool,
+    ) {
+        ui.horizontal(|ui| {
+            ui.toggle_value(&mut self.edit_mode, "Edit");
+            if self.edit_mode {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.new_category_name)
+                        .hint_text("category name")
+                        .desired_width(ui.available_width() - 110.0),
+                );
+                if ui.button("New Category").clicked() {
+                    query::add_category(conn, &self.new_category_name);
+                    self.new_category_name = "".into();
+                    *refresh_self = true;
+                }
+            }
+        });
+    }
+
     pub fn update(
         &mut self,
         ctx: &egui::Context,
@@ -41,86 +167,29 @@ impl CategoryListWindow {
         toasts: &mut egui_toast::Toasts,
         recipe_list_windows: &mut HashMap<RecipeCategoryId, RecipeListWindow>,
     ) {
+        let style = ctx.style();
+        let button_height = (egui::TextStyle::Button.resolve(&style).size
+            + style.spacing.button_padding.y as f32 * 2.0)
+            .max(style.spacing.interact_size.y);
+        let spacing = style.spacing.item_spacing.y;
+
+        let separator_height = 6.0;
+        let add_category_height = button_height + spacing + separator_height + 2.0;
+
         let mut refresh_self = false;
         egui::Window::new("Categories").show(ctx, |ui| {
-            let scroll_height = ui.available_height() - 35.0;
-            egui::ScrollArea::vertical()
-                .auto_shrink(false)
-                .max_height(scroll_height)
-                .show(ui, |ui| {
-                    egui::Grid::new("categories grid").show(ui, |ui| {
-                        for RecipeCategory { name, id: cat_id } in &self.categories {
-                            if let Some(e) = &mut self.category_being_edited {
-                                if e.id == *cat_id {
-                                    ui.add(egui::TextEdit::singleline(&mut e.name));
-                                    if ui.button("Save").clicked() {
-                                        query::edit_category(conn, e.id, &e.name);
-                                        if let Some(w) = recipe_list_windows.get_mut(&e.id) {
-                                            w.category_name_changed(e.name.clone());
-                                        }
-                                        refresh_self = true;
-                                    }
-                                    ui.end_row();
-                                    continue;
-                                }
-                            }
-
-                            let mut shown = recipe_list_windows.contains_key(&cat_id);
-                            ui.toggle_value(&mut shown, name.clone());
-                            if self.edit_mode {
-                                if ui.button("Edit").clicked() {
-                                    self.category_being_edited = Some(CategoryBeingEdited {
-                                        id: *cat_id,
-                                        name: name.clone(),
-                                    });
-                                }
-                                if ui.button("Delete").clicked() {
-                                    if query::delete_category(conn, *cat_id) {
-                                        refresh_self = true;
-                                        shown = false;
-                                    } else {
-                                        toasts.add(egui_toast::Toast {
-                                            text: "Couldn't delete category, it still contains recipes".into(),
-                                            kind: egui_toast::ToastKind::Error,
-                                            options: egui_toast::ToastOptions::default()
-                                                .duration_in_seconds(3.0)
-                                                .show_progress(false)
-                                                .show_icon(true),
-                                            ..Default::default()
-                                        });
-                                    }
-                                }
-                            }
-                            ui.end_row();
-
-                            if shown && !recipe_list_windows.contains_key(&cat_id) {
-                                let cat = RecipeCategory {
-                                    id: *cat_id,
-                                    name: name.clone(),
-                                };
-                                recipe_list_windows
-                                    .insert(*cat_id, RecipeListWindow::new(conn, cat, false));
-                            } else if !shown {
-                                recipe_list_windows.remove(cat_id);
-                            }
-                        }
+            egui_extras::StripBuilder::new(ui)
+                .size(egui_extras::Size::remainder())
+                .size(egui_extras::Size::exact(add_category_height))
+                .vertical(|mut strip| {
+                    strip.cell(|ui| {
+                        self.update_table(conn, toasts, recipe_list_windows, ui, &mut refresh_self);
+                    });
+                    strip.cell(|ui| {
+                        ui.separator();
+                        self.update_add_category(conn, ui, &mut refresh_self);
                     });
                 });
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.toggle_value(&mut self.edit_mode, "Edit");
-                if self.edit_mode {
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.new_category_name)
-                            .desired_width(ui.available_width() - 100.0),
-                    );
-                    if ui.button("Add").clicked() {
-                        query::add_category(conn, &self.new_category_name);
-                        self.new_category_name = "".into();
-                        refresh_self = true;
-                    }
-                }
-            });
         });
 
         if refresh_self {
