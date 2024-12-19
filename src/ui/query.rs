@@ -423,18 +423,16 @@ pub fn search_recipes_by_ingredients(
     ingredient_ids: Vec<IngredientId>,
 ) -> Vec<RecipeHandle> {
     use database::schema::{ingredient_usages, ingredients, recipes};
-    let mut query = recipes::table
+    use diesel::dsl::count;
+
+    let num_ingredients = ingredient_ids.len() as i64;
+    recipes::table
         .inner_join(ingredient_usages::table.on(ingredient_usages::recipe_id.eq(recipes::id)))
         .inner_join(ingredients::table.on(ingredient_usages::ingredient_id.eq(ingredients::id)))
-        .into_boxed();
-
-    for i in ingredient_ids {
-        query = query.or_filter(ingredients::id.eq(i));
-    }
-
-    query
+        .filter(ingredients::id.eq_any(ingredient_ids))
         .select(RecipeHandle::as_select())
-        .distinct()
+        .group_by(recipes::id)
+        .having(count(ingredient_usages::ingredient_id).eq(num_ingredients))
         .load(conn)
         .unwrap()
 }
