@@ -697,9 +697,14 @@ impl RecipeWindow {
         let mut open = true;
         let mut refresh_self = false;
 
+        let mut default_height = edit_height + 20.0;
+        if default_height > 500.0 {
+            default_height = 500.0;
+        }
+
         egui::Window::new(self.recipe.name.clone())
             .id(egui::Id::new(("recipe", self.recipe.id)))
-            .default_height(edit_height + 20.0)
+            .default_height(default_height)
             .default_width(400.0)
             .open(&mut open)
             .show(ctx, |ui| {
