@@ -361,6 +361,8 @@ impl eframe::App for RecipeManager {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui_extras::install_image_loaders(ctx);
+
         self.update_menu(ctx);
         self.update_import_window(ctx);
         self.update_ingredient_window(ctx);

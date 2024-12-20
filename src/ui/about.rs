@@ -10,7 +10,13 @@ impl AboutWindow {
 
         egui::Window::new("About").open(&mut open).show(ctx, |ui| {
             ui.vertical_centered(|ui| {
+                ui.add(
+                    egui::Image::new(egui::include_image!("../../images/appicon.png"))
+                        .maintain_aspect_ratio(true)
+                        .max_width(100.0),
+                );
                 ui.heading("Recipe Manager");
+                ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
                 ui.label("Copyright Remi Bernotavicius 2024");
                 ui.hyperlink_to(
                     "Code on GitHub",
