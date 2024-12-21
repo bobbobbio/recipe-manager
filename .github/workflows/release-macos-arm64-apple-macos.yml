@@ -7,9 +7,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build macos-13:
 
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -21,6 +21,6 @@ jobs:
       run: cargo bundle --profile=release
     - uses: actions/upload-artifact@v4
       with:
-        name: recipe-manager-macos-x86-64.app.zip
-        path: "target/release/bundle/osx/Recipe Manager.app"
+        name: recipe-manager-arm64-apple-macos.app
+        path: "target/release/bundle/osx/"
 

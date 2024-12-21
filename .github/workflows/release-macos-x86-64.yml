@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build macos-13:
+
+    runs-on: macos-13
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Diesel
+      run: cargo install diesel_cli --no-default-features --features sqlite
+    - name: Install cargo-bundle
+      run: cargo install cargo-bundle
+    - name: Build
+      run: cargo bundle --profile=release
+    - uses: actions/upload-artifact@v4
+      with:
+        name: recipe-manager-macos-x86-64.app
+        path: "target/release/bundle/osx/"
+
