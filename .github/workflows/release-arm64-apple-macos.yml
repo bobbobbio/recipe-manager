@@ -7,7 +7,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build macos-13:
+  build:
 
     runs-on: macos-latest
 
