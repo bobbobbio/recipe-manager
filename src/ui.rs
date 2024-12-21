@@ -356,8 +356,12 @@ impl RecipeManager {
 }
 
 impl eframe::App for RecipeManager {
-    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        egui::Color32::from_rgba_unmultiplied(12, 12, 12, 255).to_normalized_gamma_f32()
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        if visuals.dark_mode {
+            egui::Color32::from_rgba_unmultiplied(20, 20, 20, 255).to_normalized_gamma_f32()
+        } else {
+            egui::Color32::from_rgba_unmultiplied(252, 252, 252, 255).to_normalized_gamma_f32()
+        }
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
