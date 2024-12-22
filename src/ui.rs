@@ -203,7 +203,7 @@ impl RecipeManager {
     fn update_menu(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
+                ui.menu_button("Window", |ui| {
                     if ui.button("Import").clicked() {
                         if self.import_window.is_none() {
                             self.import_window = Some(ImportWindow::default());
