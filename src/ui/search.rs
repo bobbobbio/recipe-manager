@@ -83,11 +83,24 @@ where
             &r,
             egui::PopupCloseBehavior::CloseOnClick,
             |ui| {
+                let results = search_fn(buf);
+
+                let style = ui.style();
+                let button_height = (egui::TextStyle::Button.resolve(&style).size
+                    + style.spacing.button_padding.y as f32 * 2.0)
+                    .max(style.spacing.interact_size.y);
+                let spacing = style.spacing.item_spacing.y;
+                let height_for_size =
+                    |l: usize| button_height * l as f32 + spacing * l.saturating_sub(1) as f32;
+
+                let pop_up_height = height_for_size(results.len());
+                ui.set_min_height(pop_up_height.min(height_for_size(19)));
+
                 egui::ScrollArea::vertical()
                     .max_height(f32::INFINITY)
                     .show(ui, |ui| {
                         let mut matches_valid = false;
-                        for (text_id, text) in search_fn(buf) {
+                        for (text_id, text) in results {
                             if buf == &text {
                                 matches_valid = true;
                                 if value.is_none() {
