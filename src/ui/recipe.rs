@@ -159,6 +159,7 @@ impl RecipeWindow {
         row.col(|ui| {
             egui::ComboBox::from_id_salt(("recipe ingredient quantity units", self.recipe.id))
                 .selected_text(e.quantity_units.as_ref().map(|q| q.as_str()).unwrap_or(""))
+                .width(40.0)
                 .show_ui(ui, |ui| {
                     for m in IngredientMeasurement::iter() {
                         ui.selectable_value(&mut e.quantity_units, Some(m), m.as_str());
@@ -346,7 +347,7 @@ impl RecipeWindow {
             .column(egui_extras::Column::remainder())
             .column(egui_extras::Column::remainder())
             .column(egui_extras::Column::exact(40.0))
-            .column(egui_extras::Column::exact(20.0))
+            .column(egui_extras::Column::exact(40.0))
             .column(egui_extras::Column::exact(40.0))
             .column(egui_extras::Column::exact(85.0))
             .min_scrolled_height(0.0)
