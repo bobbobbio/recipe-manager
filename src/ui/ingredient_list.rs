@@ -262,7 +262,8 @@ impl IngredientListWindow {
                         );
                     });
                     strip.cell(|ui| {
-                        if ui.button("Add").clicked() {
+                        let e = !self.new_ingredient_name.is_empty();
+                        if ui.add_enabled(e, egui::Button::new("Add")).clicked() {
                             query::add_ingredient(conn, &self.new_ingredient_name);
                             self.new_ingredient_name = "".into();
                             *refresh_self = true;

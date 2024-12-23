@@ -151,7 +151,11 @@ impl CategoryListWindow {
                         .hint_text("category name")
                         .desired_width(ui.available_width() - 110.0),
                 );
-                if ui.button("New Category").clicked() {
+                let e = !self.new_category_name.is_empty();
+                if ui
+                    .add_enabled(e, egui::Button::new("New Category"))
+                    .clicked()
+                {
                     query::add_category(conn, &self.new_category_name);
                     self.new_category_name = "".into();
                     *refresh_self = true;

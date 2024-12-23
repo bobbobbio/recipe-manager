@@ -110,7 +110,8 @@ impl RecipeListWindow {
                         .hint_text("recipe name")
                         .desired_width(ui.available_width() - 100.0),
                 );
-                if ui.button("New Recipe").clicked() {
+                let e = !self.new_recipe_name.is_empty();
+                if ui.add_enabled(e, egui::Button::new("New Recipe")).clicked() {
                     query::add_recipe(conn, &self.new_recipe_name, self.recipe_category.id);
                     self.new_recipe_name = "".into();
                     *refresh_self = true;
