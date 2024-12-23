@@ -1,7 +1,6 @@
 use super::{ingredient_calories::IngredientCaloriesWindow, query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{Ingredient, IngredientHandle, IngredientId};
-use eframe::egui;
 use std::collections::HashMap;
 
 struct IngredientBeingEdited {

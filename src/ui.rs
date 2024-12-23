@@ -19,7 +19,6 @@ use crate::database::models::{IngredientHandle, IngredientId, RecipeCategoryId, 
 use about::AboutWindow;
 use calendar::CalendarWindow;
 use category_list::CategoryListWindow;
-use eframe::egui;
 use import::ImportWindow;
 use ingredient_calories::IngredientCaloriesWindow;
 use ingredient_list::IngredientListWindow;

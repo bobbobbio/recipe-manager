@@ -1,7 +1,6 @@
 use super::{query, recipe::RecipeWindow};
 use crate::database;
 use crate::database::models::{RecipeCategory, RecipeHandle, RecipeId};
-use eframe::egui;
 use std::collections::HashMap;
 
 pub enum UpdateEvent {

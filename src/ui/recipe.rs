@@ -10,7 +10,6 @@ use crate::database::models::{
     Ingredient, IngredientCaloriesEntry, IngredientId, IngredientMeasurement, IngredientUsageId,
     Recipe, RecipeCategoryId, RecipeDuration, RecipeId,
 };
-use eframe::egui;
 use std::collections::HashMap;
 
 struct IngredientBeingEdited {

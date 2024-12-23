@@ -4,7 +4,6 @@ use crate::database::{
     models::{Ingredient, IngredientHandle, RecipeHandle, RecipeId},
 };
 use derive_more::Display;
-use eframe::egui;
 use std::collections::HashMap;
 use std::hash::Hash;
 use strum::{EnumIter, IntoEnumIterator as _};

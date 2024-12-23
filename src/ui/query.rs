@@ -11,7 +11,6 @@ use diesel::JoinOnDsl as _;
 use diesel::QueryDsl as _;
 use diesel::RunQueryDsl as _;
 use diesel::SelectableHelper as _;
-
 use std::collections::HashMap;
 
 pub fn add_category(conn: &mut database::Connection, new_category_name: &str) {

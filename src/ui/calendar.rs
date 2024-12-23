@@ -1,7 +1,6 @@
 use super::{generate_rtf, new_error_toast, query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{RecipeHandle, RecipeId};
-use eframe::egui;
 use std::collections::HashMap;
 
 pub fn this_week() -> chrono::NaiveWeek {

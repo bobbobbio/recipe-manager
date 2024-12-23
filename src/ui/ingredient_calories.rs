@@ -1,7 +1,6 @@
 use super::query;
 use crate::database;
 use crate::database::models::{IngredientCaloriesEntry, IngredientHandle, IngredientMeasurement};
-use eframe::egui;
 
 #[derive(Default)]
 struct NewEntry {
