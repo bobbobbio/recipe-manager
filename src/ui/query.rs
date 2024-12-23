@@ -562,6 +562,7 @@ pub fn search_recipe_categories(
     let result: Vec<_> = recipe_categories
         .select(RecipeCategory::as_select())
         .filter(name.like(format!("%{query}%")))
+        .order_by(name.asc())
         .load(conn)
         .unwrap()
         .into_iter()
