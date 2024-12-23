@@ -390,6 +390,7 @@ pub fn search_ingredient_categories(
         .select(category)
         .filter(category.like(format!("%{query}%")))
         .distinct()
+        .order_by(category.asc())
         .load(conn)
         .unwrap()
         .into_iter()
