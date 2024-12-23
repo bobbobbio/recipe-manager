@@ -1,10 +1,6 @@
 use super::{query, recipe::RecipeWindow};
 use crate::database;
 use crate::database::models::{RecipeCategory, RecipeHandle, RecipeId};
-use diesel::ExpressionMethods as _;
-use diesel::QueryDsl as _;
-use diesel::RunQueryDsl as _;
-use diesel::SelectableHelper as _;
 use eframe::egui;
 use std::collections::HashMap;
 
@@ -27,13 +23,7 @@ impl RecipeListWindow {
         recipe_category: RecipeCategory,
         edit_mode: bool,
     ) -> Self {
-        use database::schema::recipes::dsl::*;
-        let recipe_vec = recipes
-            .select(RecipeHandle::as_select())
-            .filter(category.eq(recipe_category.id))
-            .order_by(name.asc())
-            .load(conn)
-            .unwrap();
+        let recipe_vec = query::get_recipes(conn, recipe_category.id);
         let recipe_lookup = recipe_vec
             .iter()
             .enumerate()

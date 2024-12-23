@@ -37,7 +37,7 @@ pub struct IngredientListWindow {
 }
 
 impl IngredientListWindow {
-    pub fn new(_conn: &mut database::Connection, edit_mode: bool, name_search: String) -> Self {
+    pub fn new_with_args(edit_mode: bool, name_search: String) -> Self {
         Self {
             all_ingredients: None,
             edit_mode,
@@ -45,6 +45,10 @@ impl IngredientListWindow {
             ingredient_being_edited: None,
             name_search,
         }
+    }
+
+    pub fn new() -> Self {
+        Self::new_with_args(false, String::new())
     }
 
     fn update_ingredient_editing(
@@ -340,7 +344,7 @@ impl IngredientListWindow {
         }
 
         if refresh_self {
-            *self = Self::new(conn, self.edit_mode, std::mem::take(&mut self.name_search));
+            *self = Self::new_with_args(self.edit_mode, std::mem::take(&mut self.name_search));
         }
         if !open {
             events.push(UpdateEvent::Closed);
@@ -348,7 +352,7 @@ impl IngredientListWindow {
         events
     }
 
-    pub fn ingredient_deleted(&mut self, conn: &mut database::Connection) {
-        *self = Self::new(conn, self.edit_mode, std::mem::take(&mut self.name_search));
+    pub fn ingredient_deleted(&mut self) {
+        *self = Self::new_with_args(self.edit_mode, std::mem::take(&mut self.name_search));
     }
 }

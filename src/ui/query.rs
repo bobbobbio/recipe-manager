@@ -592,3 +592,25 @@ pub fn replace_ingredient(
         .execute(conn)
         .unwrap()
 }
+
+pub fn get_recipe_categories(conn: &mut database::Connection) -> Vec<RecipeCategory> {
+    use database::schema::recipe_categories::dsl::*;
+    recipe_categories
+        .select(RecipeCategory::as_select())
+        .order_by(name.asc())
+        .load(conn)
+        .unwrap()
+}
+
+pub fn get_recipes(
+    conn: &mut database::Connection,
+    category_id: RecipeCategoryId,
+) -> Vec<RecipeHandle> {
+    use database::schema::recipes::dsl::*;
+    recipes
+        .select(RecipeHandle::as_select())
+        .filter(category.eq(category_id))
+        .order_by(name.asc())
+        .load(conn)
+        .unwrap()
+}

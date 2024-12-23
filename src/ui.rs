@@ -62,7 +62,7 @@ pub struct RecipeManager {
 impl RecipeManager {
     pub fn new(mut conn: database::Connection) -> Self {
         Self {
-            category_list: CategoryListWindow::new(&mut conn, false),
+            category_list: CategoryListWindow::new(&mut conn),
             conn,
             import_window: None,
             recipe_lists: Default::default(),
@@ -213,8 +213,7 @@ impl RecipeManager {
                 ui.menu_button("Window", |ui| {
                     if ui.button("Ingredients").clicked() {
                         if self.ingredient_list_window.is_none() {
-                            self.ingredient_list_window =
-                                Some(IngredientListWindow::new(&mut self.conn, false, "".into()));
+                            self.ingredient_list_window = Some(IngredientListWindow::new());
                         }
                         ui.close_menu();
                     }
@@ -376,7 +375,7 @@ impl RecipeManager {
                     }
                     ingredient_replace::UpdateEvent::IngredientDeleted => {
                         if let Some(window) = &mut self.ingredient_list_window {
-                            window.ingredient_deleted(&mut self.conn);
+                            window.ingredient_deleted();
                         }
                         for r in self.recipes.values_mut() {
                             r.ingredient_deleted(&mut self.conn);

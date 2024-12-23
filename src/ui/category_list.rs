@@ -1,10 +1,6 @@
 use super::{query, recipe_list::RecipeListWindow};
 use crate::database;
 use crate::database::models::{RecipeCategory, RecipeCategoryId};
-use diesel::ExpressionMethods as _;
-use diesel::QueryDsl as _;
-use diesel::RunQueryDsl as _;
-use diesel::SelectableHelper as _;
 use std::collections::HashMap;
 
 struct CategoryBeingEdited {
@@ -20,18 +16,17 @@ pub struct CategoryListWindow {
 }
 
 impl CategoryListWindow {
-    pub fn new(conn: &mut database::Connection, edit_mode: bool) -> Self {
-        use database::schema::recipe_categories::dsl::*;
+    fn new_with_args(conn: &mut database::Connection, edit_mode: bool) -> Self {
         Self {
-            categories: recipe_categories
-                .select(RecipeCategory::as_select())
-                .order_by(name.asc())
-                .load(conn)
-                .unwrap(),
+            categories: query::get_recipe_categories(conn),
             new_category_name: String::new(),
             edit_mode,
             category_being_edited: None,
         }
+    }
+
+    pub fn new(conn: &mut database::Connection) -> Self {
+        Self::new_with_args(conn, false)
     }
 
     fn update_table_contents(
@@ -197,11 +192,11 @@ impl CategoryListWindow {
         });
 
         if refresh_self {
-            *self = Self::new(conn, self.edit_mode);
+            *self = Self::new_with_args(conn, self.edit_mode);
         }
     }
 
     pub fn recipes_imported(&mut self, conn: &mut database::Connection) {
-        *self = Self::new(conn, self.edit_mode);
+        *self = Self::new_with_args(conn, self.edit_mode);
     }
 }
