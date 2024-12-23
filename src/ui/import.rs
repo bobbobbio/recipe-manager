@@ -36,7 +36,7 @@ impl ImportWindow {
     ) -> Vec<UpdateEvent> {
         let mut events = vec![];
         let mut open = true;
-        egui::Window::new("Import data")
+        egui::Window::new("Import Data from Previous Version")
             .open(&mut open)
             .show(ctx, |ui| {
                 let next = match self {
@@ -65,37 +65,41 @@ impl ImportWindow {
     }
 
     fn update_ready(conn: &mut database::Connection, ui: &mut egui::Ui) -> Option<Self> {
-        if ui.button("import recipes").clicked() {
-            if let Some(file) = rfd::FileDialog::new()
-                .add_filter("recipebook", &["recipebook"])
-                .set_directory("/")
-                .pick_file()
-            {
-                return Some(match import::RecipeImporter::new(conn, file) {
-                    Ok(importer) => Self::ImportingRecipes {
-                        importer,
-                        log: String::new(),
-                    },
-                    Err(error) => Self::Failed { error },
-                });
+        ui.label("This dialog lets you import data from older versions of Recipe Manager.");
+        ui.horizontal(|ui| {
+            if ui.button("Import Recipes").clicked() {
+                if let Some(file) = rfd::FileDialog::new()
+                    .add_filter("recipebook", &["recipebook"])
+                    .set_directory("/")
+                    .pick_file()
+                {
+                    return Some(match import::RecipeImporter::new(conn, file) {
+                        Ok(importer) => Self::ImportingRecipes {
+                            importer,
+                            log: String::new(),
+                        },
+                        Err(error) => Self::Failed { error },
+                    });
+                }
             }
-        }
-        if ui.button("import calendar").clicked() {
-            if let Some(file) = rfd::FileDialog::new()
-                .add_filter("recipecalendar", &["recipecalendar"])
-                .set_directory("/")
-                .pick_file()
-            {
-                return Some(match import::CalendarImporter::new(file) {
-                    Ok(importer) => Self::ImportingCalendar {
-                        importer,
-                        log: String::new(),
-                    },
-                    Err(error) => Self::Failed { error },
-                });
+            if ui.button("Import Calendar").clicked() {
+                if let Some(file) = rfd::FileDialog::new()
+                    .add_filter("recipecalendar", &["recipecalendar"])
+                    .set_directory("/")
+                    .pick_file()
+                {
+                    return Some(match import::CalendarImporter::new(file) {
+                        Ok(importer) => Self::ImportingCalendar {
+                            importer,
+                            log: String::new(),
+                        },
+                        Err(error) => Self::Failed { error },
+                    });
+                }
             }
-        }
-        None
+            None
+        })
+        .inner
     }
 
     fn update_importing(
