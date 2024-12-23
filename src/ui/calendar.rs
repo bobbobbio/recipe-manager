@@ -141,9 +141,13 @@ pub struct CalendarWindow {
 
 impl CalendarWindow {
     pub fn new(conn: &mut database::Connection) -> Self {
+        Self::new_with_args(conn, false)
+    }
+
+    fn new_with_args(conn: &mut database::Connection, edit_mode: bool) -> Self {
         Self {
             week: RecipeWeek::new(conn, this_week()),
-            edit_mode: false,
+            edit_mode,
             recipes_being_selected: HashMap::new(),
         }
     }
@@ -194,12 +198,17 @@ impl CalendarWindow {
                                     )
                                     .hint_text("search for recipe"),
                                 );
-                                if ui.button("Select").clicked() && e.recipe_id.is_some() {
-                                    self.week.schedule(conn, day, e.recipe_id.unwrap());
-                                    events.push(UpdateEvent::RecipeScheduled {
-                                        week: self.week.week().clone(),
-                                    });
-                                    self.edit_mode = false;
+                                if ui.button("Select").clicked() {
+                                    if let Some(recipe_id) = e.recipe_id {
+                                        self.week.schedule(conn, day, recipe_id);
+                                        *e = Default::default();
+
+                                        events.push(UpdateEvent::RecipeScheduled {
+                                            week: self.week.week().clone(),
+                                        });
+                                    } else {
+                                        toasts.add(new_error_toast("Couldn't find recipe"));
+                                    }
                                 }
                             }
                         }
@@ -258,5 +267,9 @@ impl CalendarWindow {
 
     pub fn calendar_imported(&mut self, conn: &mut database::Connection) {
         self.week.refresh(conn);
+    }
+
+    pub fn recipe_deleted(&mut self, conn: &mut database::Connection) {
+        *self = Self::new_with_args(conn, self.edit_mode);
     }
 }

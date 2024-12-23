@@ -152,6 +152,12 @@ impl RecipeManager {
                         if let Some(window) = &mut self.recipe_search_window {
                             window.recipe_deleted(id);
                         }
+                        if let Some(c) = self.calendar_window.as_mut() {
+                            c.recipe_deleted(&mut self.conn);
+                        }
+                        for recipe in self.recipes.values_mut() {
+                            recipe.recipe_deleted(&mut self.conn);
+                        }
                     }
                 }
             }

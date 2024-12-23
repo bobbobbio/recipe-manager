@@ -117,11 +117,12 @@ pub fn edit_category(
 
 pub fn delete_recipe(conn: &mut database::Connection, delete_id: RecipeId) {
     conn.transaction::<_, diesel::result::Error, _>(|conn| {
-        use database::schema::{ingredient_usages, recipes};
+        use database::schema::{calendar, ingredient_usages, recipes};
         use diesel::delete;
 
         delete(ingredient_usages::table.filter(ingredient_usages::recipe_id.eq(delete_id)))
             .execute(conn)?;
+        delete(calendar::table.filter(calendar::recipe_id.eq(delete_id))).execute(conn)?;
         delete(recipes::table.filter(recipes::id.eq(delete_id))).execute(conn)?;
         Ok(())
     })
