@@ -444,6 +444,12 @@ impl RecipeSearchByName {
                 }
             });
     }
+
+    fn recipe_deleted(&mut self, to_delete: RecipeId) {
+        if let Some(c) = &mut self.recipes {
+            c.results.retain(|(id, _)| *id != to_delete);
+        }
+    }
 }
 
 #[derive(Copy, Clone, EnumIter, Display, Default, PartialEq, Eq)]
@@ -505,5 +511,9 @@ impl RecipeSearchWindow {
                 }
             });
         !open
+    }
+
+    pub fn recipe_deleted(&mut self, id: RecipeId) {
+        self.by_name.recipe_deleted(id);
     }
 }

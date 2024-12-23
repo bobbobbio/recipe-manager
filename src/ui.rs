@@ -146,6 +146,9 @@ impl RecipeManager {
                         for s in &mut self.search_result_windows {
                             s.recipe_deleted(id);
                         }
+                        if let Some(window) = &mut self.recipe_search_window {
+                            window.recipe_deleted(id);
+                        }
                     }
                 }
             }
