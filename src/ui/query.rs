@@ -252,7 +252,7 @@ pub fn edit_recipe_name(conn: &mut database::Connection, recipe_id: RecipeId, ne
 
 pub struct CachedQuery<IdT> {
     query: String,
-    results: Vec<(IdT, String)>,
+    pub results: Vec<(IdT, String)>,
 }
 
 pub fn search_ingredients(
@@ -272,6 +272,7 @@ pub fn search_ingredients(
     let result: Vec<_> = ingredients
         .select(Ingredient::as_select())
         .filter(name.like(format!("%{query}%")))
+        .order_by(name.asc())
         .load(conn)
         .unwrap()
         .into_iter()
@@ -347,6 +348,7 @@ pub fn search_recipes(
     let result: Vec<_> = recipes
         .select(RecipeHandle::as_select())
         .filter(name.like(format!("%{query}%")))
+        .order_by(name.asc())
         .load(conn)
         .unwrap()
         .into_iter()

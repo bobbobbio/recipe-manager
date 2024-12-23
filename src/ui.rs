@@ -319,7 +319,13 @@ impl RecipeManager {
                     ingredients,
                 )
             };
-            if window.update(ctx, &mut self.conn, &mut self.toasts, search_by_ingredients) {
+            if window.update(
+                ctx,
+                &mut self.conn,
+                &mut self.recipes,
+                &mut self.toasts,
+                search_by_ingredients,
+            ) {
                 self.recipe_search_window = None;
             }
         }

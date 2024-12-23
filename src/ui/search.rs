@@ -7,6 +7,7 @@ use derive_more::Display;
 use eframe::egui;
 use std::collections::HashMap;
 use std::hash::Hash;
+use strum::{EnumIter, IntoEnumIterator as _};
 
 pub struct SearchWidget<'a, SearchFn, ValueT> {
     buf: &'a mut String,
@@ -209,7 +210,7 @@ impl IngredientSearchControl {
     }
 }
 
-pub struct RecipeSearchWindow {
+struct RecipeSearchByIngredient {
     to_search: Vec<IngredientHandle>,
 
     new_ingredient_name: String,
@@ -218,8 +219,8 @@ pub struct RecipeSearchWindow {
     control: IngredientSearchControl,
 }
 
-impl RecipeSearchWindow {
-    pub fn new() -> Self {
+impl RecipeSearchByIngredient {
+    fn new() -> Self {
         Self {
             to_search: vec![],
             new_ingredient_name: String::new(),
@@ -343,9 +344,8 @@ impl RecipeSearchWindow {
             });
     }
 
-    pub fn update(
+    fn update(
         &mut self,
-        ctx: &egui::Context,
         conn: &mut database::Connection,
         toasts: &mut egui_toast::Toasts,
         search_for_ingredients: impl FnMut(
@@ -353,8 +353,9 @@ impl RecipeSearchWindow {
             IngredientSearchControl,
             Vec<IngredientHandle>,
         ),
-    ) -> bool {
-        let style = ctx.style();
+        ui: &mut egui::Ui,
+    ) {
+        let style = ui.style();
         let button_height = (egui::TextStyle::Button.resolve(&style).size
             + style.spacing.button_padding.y as f32 * 2.0)
             .max(style.spacing.interact_size.y);
@@ -364,31 +365,140 @@ impl RecipeSearchWindow {
         let add_ingredient_height = button_height + spacing + separator_height + spacing;
         let search_height = button_height + spacing + separator_height;
 
+        egui_extras::StripBuilder::new(ui)
+            .size(egui_extras::Size::remainder())
+            .size(egui_extras::Size::exact(add_ingredient_height))
+            .size(egui_extras::Size::exact(search_height))
+            .vertical(|mut strip| {
+                strip.cell(|ui| {
+                    egui::ScrollArea::horizontal().show(ui, |ui| {
+                        self.update_table(ui);
+                    });
+                });
+                strip.cell(|ui| {
+                    ui.separator();
+                    self.update_add_ingredient(conn, toasts, ui);
+                });
+                strip.cell(|ui| {
+                    ui.separator();
+                    self.update_do_search(conn, search_for_ingredients, ui);
+                });
+            });
+    }
+}
+
+struct RecipeSearchByName {
+    name: String,
+    recipes: Option<query::CachedQuery<RecipeId>>,
+}
+
+impl RecipeSearchByName {
+    fn new() -> Self {
+        Self {
+            name: "".into(),
+            recipes: None,
+        }
+    }
+
+    fn update(
+        &mut self,
+        conn: &mut database::Connection,
+        recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
+        ui: &mut egui::Ui,
+    ) {
+        ui.add(egui::TextEdit::singleline(&mut self.name));
+        query::search_recipes(conn, &mut self.recipes, &self.name);
+
+        let available_height = ui.available_height();
+        egui_extras::TableBuilder::new(ui)
+            .id_salt("recipe search results table")
+            .striped(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(egui_extras::Column::remainder())
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height)
+            .body(|mut body| {
+                let recipe_iter = self
+                    .recipes
+                    .as_ref()
+                    .map(|c| c.results.iter())
+                    .into_iter()
+                    .flatten();
+                for (id, name) in recipe_iter {
+                    body.row(20.0, |mut row| {
+                        let mut shown = recipe_windows.contains_key(&id);
+                        row.col(|ui| {
+                            ui.toggle_value(&mut shown, name.clone());
+                        });
+
+                        if shown && !recipe_windows.contains_key(&id) {
+                            recipe_windows.insert(*id, RecipeWindow::new(conn, *id, false));
+                        } else if !shown {
+                            recipe_windows.remove(id);
+                        }
+                    });
+                }
+            });
+    }
+}
+
+#[derive(Copy, Clone, EnumIter, Display, Default, PartialEq, Eq)]
+enum RecipeSearchTab {
+    #[display("By Name")]
+    #[default]
+    ByName,
+    #[display("By Ingredient")]
+    ByIngredient,
+}
+
+pub struct RecipeSearchWindow {
+    selected_tab: RecipeSearchTab,
+    by_ingredient: RecipeSearchByIngredient,
+    by_name: RecipeSearchByName,
+}
+
+impl RecipeSearchWindow {
+    pub fn new() -> Self {
+        Self {
+            selected_tab: Default::default(),
+            by_ingredient: RecipeSearchByIngredient::new(),
+            by_name: RecipeSearchByName::new(),
+        }
+    }
+
+    pub fn update(
+        &mut self,
+        ctx: &egui::Context,
+        conn: &mut database::Connection,
+        recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
+        toasts: &mut egui_toast::Toasts,
+        search_for_ingredients: impl FnMut(
+            &mut database::Connection,
+            IngredientSearchControl,
+            Vec<IngredientHandle>,
+        ),
+    ) -> bool {
         let mut open = true;
         egui::Window::new("Recipe Search")
             .open(&mut open)
             .default_height(200.0)
             .default_width(300.0)
             .show(ctx, |ui| {
-                egui_extras::StripBuilder::new(ui)
-                    .size(egui_extras::Size::remainder())
-                    .size(egui_extras::Size::exact(add_ingredient_height))
-                    .size(egui_extras::Size::exact(search_height))
-                    .vertical(|mut strip| {
-                        strip.cell(|ui| {
-                            egui::ScrollArea::horizontal().show(ui, |ui| {
-                                self.update_table(ui);
-                            });
-                        });
-                        strip.cell(|ui| {
-                            ui.separator();
-                            self.update_add_ingredient(conn, toasts, ui);
-                        });
-                        strip.cell(|ui| {
-                            ui.separator();
-                            self.update_do_search(conn, search_for_ingredients, ui);
-                        });
-                    })
+                ui.horizontal(|ui| {
+                    for v in RecipeSearchTab::iter() {
+                        ui.selectable_value(&mut self.selected_tab, v, v.to_string());
+                    }
+                });
+                ui.separator();
+                match self.selected_tab {
+                    RecipeSearchTab::ByIngredient => {
+                        self.by_ingredient
+                            .update(conn, toasts, search_for_ingredients, ui);
+                    }
+                    RecipeSearchTab::ByName => {
+                        self.by_name.update(conn, recipe_windows, ui);
+                    }
+                }
             });
         !open
     }
