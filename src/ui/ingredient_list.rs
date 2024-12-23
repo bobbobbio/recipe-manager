@@ -25,6 +25,7 @@ impl IngredientBeingEdited {
 pub enum UpdateEvent {
     Closed,
     IngredientEdited,
+    IngredientDeleted,
 }
 
 pub struct IngredientListWindow {
@@ -91,6 +92,7 @@ impl IngredientListWindow {
         ingredient_calories_windows: &mut HashMap<IngredientId, IngredientCaloriesWindow>,
         mut search_for_ingredient: impl FnMut(&mut database::Connection, Vec<IngredientHandle>),
         row: &mut egui_extras::TableRow<'_, '_>,
+        events: &mut Vec<UpdateEvent>,
         refresh_self: &mut bool,
     ) {
         row.col(|ui| {
@@ -111,6 +113,7 @@ impl IngredientListWindow {
                 if ui.button("Delete").clicked() {
                     if query::delete_ingredient(conn, ingredient.id) {
                         *refresh_self = true;
+                        events.push(UpdateEvent::IngredientDeleted);
                         calories_shown = false;
                     } else {
                         toasts.add(egui_toast::Toast {
@@ -187,6 +190,7 @@ impl IngredientListWindow {
                     ingredient_calories_windows,
                     &mut search_for_ingredient,
                     &mut row,
+                    &mut events,
                     refresh_self,
                 );
             });

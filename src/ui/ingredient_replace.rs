@@ -124,4 +124,8 @@ impl IngredientReplaceWindow {
         }
         events
     }
+
+    pub fn ingredient_deleted(&mut self, _conn: &mut database::Connection) {
+        *self = Self::default();
+    }
 }

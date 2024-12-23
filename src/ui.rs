@@ -298,6 +298,14 @@ impl RecipeManager {
                             r.ingredient_edited(&mut self.conn);
                         }
                     }
+                    ingredient_list::UpdateEvent::IngredientDeleted => {
+                        for r in self.recipes.values_mut() {
+                            r.ingredient_deleted(&mut self.conn);
+                        }
+                        if let Some(window) = &mut self.ingredient_replace_window {
+                            window.ingredient_deleted(&mut self.conn);
+                        }
+                    }
                 }
             }
         }
@@ -368,6 +376,9 @@ impl RecipeManager {
                     ingredient_replace::UpdateEvent::IngredientDeleted => {
                         if let Some(window) = &mut self.ingredient_list_window {
                             window.ingredient_deleted(&mut self.conn);
+                        }
+                        for r in self.recipes.values_mut() {
+                            r.ingredient_deleted(&mut self.conn);
                         }
                     }
                 }

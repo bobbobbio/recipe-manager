@@ -784,4 +784,8 @@ impl RecipeWindow {
     pub fn ingredient_edited(&mut self, conn: &mut database::Connection) {
         *self = Self::new(conn, self.recipe.id, self.edit_mode);
     }
+
+    pub fn ingredient_deleted(&mut self, conn: &mut database::Connection) {
+        *self = Self::new(conn, self.recipe.id, self.edit_mode);
+    }
 }
