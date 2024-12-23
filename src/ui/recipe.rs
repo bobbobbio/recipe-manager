@@ -293,7 +293,7 @@ impl RecipeWindow {
                     strip.cell(|ui| {
                         ui.add(
                             SearchWidget::new(
-                                "ingredient",
+                                ("recipe ingredient add search", self.recipe.id),
                                 &mut self.new_ingredient_name,
                                 &mut self.new_ingredient,
                                 |query| {

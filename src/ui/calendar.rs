@@ -185,7 +185,7 @@ impl CalendarWindow {
                                 ui.add_sized(
                                     egui::vec2(200.0, 15.0),
                                     SearchWidget::new(
-                                        format!("recipe for {day}"),
+                                        ("calendar select recipe", day),
                                         &mut e.name,
                                         &mut e.recipe_id,
                                         |query| {
