@@ -433,6 +433,7 @@ pub fn search_recipes_including_any_ingredient(
         .filter(ingredients::id.eq_any(ingredient_ids))
         .select(RecipeHandle::as_select())
         .distinct()
+        .order_by(recipes::name.asc())
         .load(conn)
         .unwrap()
 }
@@ -452,6 +453,7 @@ pub fn search_recipes_including_at_least_ingredients(
         .select(RecipeHandle::as_select())
         .group_by(recipes::id)
         .having(count(ingredient_usages::ingredient_id).ge(at_least as i64))
+        .order_by(recipes::name.asc())
         .load(conn)
         .unwrap()
 }
