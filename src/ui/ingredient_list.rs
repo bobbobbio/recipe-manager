@@ -343,4 +343,8 @@ impl IngredientListWindow {
         }
         events
     }
+
+    pub fn ingredient_deleted(&mut self, conn: &mut database::Connection) {
+        *self = Self::new(conn, self.edit_mode);
+    }
 }

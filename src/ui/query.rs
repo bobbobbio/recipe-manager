@@ -574,3 +574,17 @@ pub fn search_recipe_categories(
     });
     result
 }
+
+pub fn replace_ingredient(
+    conn: &mut database::Connection,
+    remove: IngredientId,
+    fill: IngredientId,
+) -> usize {
+    use database::schema::ingredient_usages::dsl::*;
+    use diesel::update;
+
+    update(ingredient_usages.filter(ingredient_id.eq(remove)))
+        .set(ingredient_id.eq(fill))
+        .execute(conn)
+        .unwrap()
+}

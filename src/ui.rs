@@ -7,6 +7,7 @@ mod generate_rtf;
 mod import;
 mod ingredient_calories;
 mod ingredient_list;
+mod ingredient_replace;
 mod query;
 mod recipe;
 mod recipe_list;
@@ -22,6 +23,7 @@ use eframe::egui;
 use import::ImportWindow;
 use ingredient_calories::IngredientCaloriesWindow;
 use ingredient_list::IngredientListWindow;
+use ingredient_replace::IngredientReplaceWindow;
 use recipe::RecipeWindow;
 use recipe_list::RecipeListWindow;
 use search::{IngredientSearchControl, RecipeSearchWindow, SearchResultsWindow};
@@ -53,6 +55,7 @@ pub struct RecipeManager {
     next_search_results_window_id: u64,
     recipe_search_window: Option<RecipeSearchWindow>,
     ingredient_calories_windows: HashMap<IngredientId, IngredientCaloriesWindow>,
+    ingredient_replace_window: Option<IngredientReplaceWindow>,
     about_window: Option<AboutWindow>,
 }
 
@@ -70,6 +73,7 @@ impl RecipeManager {
             next_search_results_window_id: 0,
             recipe_search_window: None,
             ingredient_calories_windows: Default::default(),
+            ingredient_replace_window: None,
             about_window: None,
             toasts: egui_toast::Toasts::new()
                 .anchor(egui::Align2::LEFT_BOTTOM, (10.0, 10.0))
@@ -232,6 +236,12 @@ impl RecipeManager {
                         }
                         ui.close_menu();
                     }
+                    if ui.button("Ingredient Replace").clicked() {
+                        if self.ingredient_replace_window.is_none() {
+                            self.ingredient_replace_window = Some(IngredientReplaceWindow::new());
+                        }
+                        ui.close_menu();
+                    }
                     if ui.button("About").clicked() {
                         if self.about_window.is_none() {
                             self.about_window = Some(AboutWindow::new());
@@ -342,6 +352,29 @@ impl RecipeManager {
         }
     }
 
+    fn update_ingredient_replace_window(&mut self, ctx: &egui::Context) {
+        if let Some(window) = &mut self.ingredient_replace_window {
+            let events = window.update(ctx, &mut self.conn, &mut self.toasts);
+            for e in events {
+                match e {
+                    ingredient_replace::UpdateEvent::Closed => {
+                        self.ingredient_replace_window = None;
+                    }
+                    ingredient_replace::UpdateEvent::IngredientReplaced => {
+                        for r in self.recipes.values_mut() {
+                            r.ingredient_edited(&mut self.conn);
+                        }
+                    }
+                    ingredient_replace::UpdateEvent::IngredientDeleted => {
+                        if let Some(window) = &mut self.ingredient_list_window {
+                            window.ingredient_deleted(&mut self.conn);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn update_ingredient_calories_windows(&mut self, ctx: &egui::Context) {
         for (id, mut ingredient_calories) in mem::take(&mut self.ingredient_calories_windows) {
             let mut closed = false;
@@ -386,6 +419,7 @@ impl eframe::App for RecipeManager {
         self.update_search_result_windows(ctx);
         self.update_recipe_search_window(ctx);
         self.update_ingredient_calories_windows(ctx);
+        self.update_ingredient_replace_window(ctx);
         self.update_about_window(ctx);
         self.toasts.show(ctx);
     }
