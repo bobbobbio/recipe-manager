@@ -1,10 +1,6 @@
 use super::{ingredient_calories::IngredientCaloriesWindow, query, search::SearchWidget};
 use crate::database;
 use crate::database::models::{Ingredient, IngredientHandle, IngredientId};
-use diesel::ExpressionMethods as _;
-use diesel::QueryDsl as _;
-use diesel::RunQueryDsl as _;
-use diesel::SelectableHelper as _;
 use eframe::egui;
 use std::collections::HashMap;
 
@@ -32,25 +28,21 @@ pub enum UpdateEvent {
 }
 
 pub struct IngredientListWindow {
-    all_ingredients: Vec<Ingredient>,
+    all_ingredients: Option<query::CachedQuery<Ingredient>>,
     edit_mode: bool,
     new_ingredient_name: String,
     ingredient_being_edited: Option<IngredientBeingEdited>,
+    name_search: String,
 }
 
 impl IngredientListWindow {
-    pub fn new(conn: &mut database::Connection, edit_mode: bool) -> Self {
-        use database::schema::ingredients::dsl::*;
-        let all_ingredients = ingredients
-            .select(Ingredient::as_select())
-            .order_by(name.asc())
-            .load(conn)
-            .unwrap();
+    pub fn new(_conn: &mut database::Connection, edit_mode: bool) -> Self {
         Self {
-            all_ingredients,
+            all_ingredients: None,
             edit_mode,
             new_ingredient_name: String::new(),
             ingredient_being_edited: None,
+            name_search: "".into(),
         }
     }
 
@@ -169,8 +161,15 @@ impl IngredientListWindow {
         body: &mut egui_extras::TableBody<'_>,
     ) -> Vec<UpdateEvent> {
         let mut events = vec![];
+
+        query::search_ingredients(conn, &mut self.all_ingredients, &self.name_search);
         let all_ingredients = std::mem::take(&mut self.all_ingredients);
-        for ingredient in &all_ingredients {
+        let all_ingredients_iter = all_ingredients
+            .as_ref()
+            .map(|c| c.results.iter())
+            .into_iter()
+            .flatten();
+        for (ingredient, _) in all_ingredients_iter {
             body.row(20.0, |mut row| {
                 if self.update_ingredient_editing(
                     ingredient,
@@ -291,6 +290,7 @@ impl IngredientListWindow {
         let separator_height = 6.0;
 
         let add_height = button_height + spacing + separator_height + 2.0;
+        let search_height = button_height + spacing + separator_height + 2.0;
 
         let mut open = true;
         let mut events = vec![];
@@ -299,9 +299,18 @@ impl IngredientListWindow {
             .open(&mut open)
             .show(ctx, |ui| {
                 egui_extras::StripBuilder::new(ui)
+                    .size(egui_extras::Size::exact(search_height))
                     .size(egui_extras::Size::remainder())
                     .size(egui_extras::Size::exact(add_height))
                     .vertical(|mut strip| {
+                        strip.cell(|ui| {
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.name_search)
+                                    .hint_text("search by name")
+                                    .desired_width(f32::INFINITY),
+                            );
+                            ui.separator();
+                        });
                         strip.cell(|ui| {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 events.extend(self.update_table(

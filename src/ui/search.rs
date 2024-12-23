@@ -406,7 +406,11 @@ impl RecipeSearchByName {
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
         ui: &mut egui::Ui,
     ) {
-        ui.add(egui::TextEdit::singleline(&mut self.name));
+        ui.add(
+            egui::TextEdit::singleline(&mut self.name)
+                .hint_text("search by name")
+                .desired_width(f32::INFINITY),
+        );
         query::search_recipes(conn, &mut self.recipes, &self.name);
 
         let available_height = ui.available_height();
