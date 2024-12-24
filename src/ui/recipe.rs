@@ -235,17 +235,19 @@ impl RecipeWindow {
             )
         });
 
-        if self.edit_mode && self.ingredient_being_edited.is_none() {
+        if self.edit_mode {
             row.col(|ui| {
-                ui.horizontal(|ui| {
-                    if ui.button("Edit").clicked() {
-                        self.ingredient_being_edited = Some(IngredientBeingEdited::new(usage));
-                    }
-                    if ui.button("Delete").clicked() {
-                        query::delete_recipe_ingredient(conn, usage.id);
-                        *refresh_self = true;
-                    }
-                });
+                if self.ingredient_being_edited.is_none() {
+                    ui.horizontal(|ui| {
+                        if ui.button("Edit").clicked() {
+                            self.ingredient_being_edited = Some(IngredientBeingEdited::new(usage));
+                        }
+                        if ui.button("Delete").clicked() {
+                            query::delete_recipe_ingredient(conn, usage.id);
+                            *refresh_self = true;
+                        }
+                    });
+                }
             });
         }
     }
