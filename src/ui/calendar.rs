@@ -176,7 +176,6 @@ impl CalendarWindow {
                             ui.label(recipe.name.clone());
                             if self.edit_mode && ui.button("Clear").clicked() {
                                 self.week.clear_day(conn, day);
-                                self.edit_mode = false;
                             }
                         } else {
                             ui.label("No Recipe");
