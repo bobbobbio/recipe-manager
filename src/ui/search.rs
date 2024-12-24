@@ -71,7 +71,9 @@ where
             edit = edit.desired_width(desired_width);
         }
         let edit_output = edit.show(ui);
+
         let mut r = edit_output.response;
+        let under_text = r.rect.bottom();
         if r.gained_focus() {
             ui.memory_mut(|m| m.open_popup(pop_up_id));
         }
@@ -93,8 +95,13 @@ where
                 let height_for_size =
                     |l: usize| button_height * l as f32 + spacing * l.saturating_sub(1) as f32;
 
-                let pop_up_height = height_for_size(results.len());
-                ui.set_min_height(pop_up_height.min(height_for_size(19)));
+                let remaining_height = ui.ctx().screen_rect().height() - under_text - 12.0;
+                let contents_height = height_for_size(results.len());
+                ui.set_height(
+                    contents_height
+                        .min(height_for_size(19))
+                        .min(remaining_height),
+                );
 
                 egui::ScrollArea::vertical()
                     .max_height(f32::INFINITY)
