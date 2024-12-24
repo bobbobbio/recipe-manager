@@ -196,7 +196,7 @@ impl CalendarWindow {
                                             )
                                         },
                                     )
-                                    .desired_width(ui.available_width())
+                                    .desired_width(ui.available_width() - 20.0)
                                     .hint_text("search for recipe"),
                                 )
                                 .pressed_enter();
@@ -309,19 +309,17 @@ impl CalendarWindow {
                             });
                         });
                         strip.cell(|ui| {
-                            egui::ScrollArea::horizontal().show(ui, |ui| {
-                                egui_extras::TableBuilder::new(ui)
-                                    .id_salt("calendar table")
-                                    .striped(false)
-                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                                    .column(egui_extras::Column::exact(80.0))
-                                    .column(egui_extras::Column::remainder())
-                                    .column(egui_extras::Column::exact(200.0))
-                                    .column(egui_extras::Column::exact(50.0))
-                                    .body(|mut body| {
-                                        events.extend(self.update_table(conn, toasts, &mut body));
-                                    });
-                            });
+                            egui_extras::TableBuilder::new(ui)
+                                .id_salt("calendar table")
+                                .striped(false)
+                                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                                .column(egui_extras::Column::exact(80.0))
+                                .column(egui_extras::Column::auto())
+                                .column(egui_extras::Column::remainder())
+                                .column(egui_extras::Column::exact(50.0))
+                                .body(|mut body| {
+                                    events.extend(self.update_table(conn, toasts, &mut body));
+                                });
                         });
                         strip.cell(|ui| {
                             self.update_controls(conn, toasts, ui);

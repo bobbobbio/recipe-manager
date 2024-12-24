@@ -133,12 +133,15 @@ impl RecipeWindow {
             return false;
         }
         row.col(|ui| {
-            ui.add(SearchWidget::new(
-                e.usage_id,
-                &mut e.new_ingredient_name,
-                &mut e.ingredient,
-                |query| query::search_ingredients(conn, &mut e.cached_ingredient_search, query),
-            ));
+            ui.add(
+                SearchWidget::new(
+                    e.usage_id,
+                    &mut e.new_ingredient_name,
+                    &mut e.ingredient,
+                    |query| query::search_ingredients(conn, &mut e.cached_ingredient_search, query),
+                )
+                .desired_width(ui.available_width() - 20.0),
+            );
         });
 
         row.col(|ui| {
@@ -720,15 +723,13 @@ impl RecipeWindow {
                         .size(egui_extras::Size::exact(controls_height))
                         .vertical(|mut strip| {
                             strip.cell(|ui| {
-                                egui::ScrollArea::horizontal().show(ui, |ui| {
-                                    self.update_ingredients_edit_mode(
-                                        conn,
-                                        toasts,
-                                        ui,
-                                        ingredient_calories_windows,
-                                        &mut refresh_self,
-                                    );
-                                });
+                                self.update_ingredients_edit_mode(
+                                    conn,
+                                    toasts,
+                                    ui,
+                                    ingredient_calories_windows,
+                                    &mut refresh_self,
+                                );
                             });
                             strip.cell(|ui| {
                                 self.update_add_ingredient(conn, toasts, ui, &mut refresh_self);
@@ -751,9 +752,7 @@ impl RecipeWindow {
                         .size(egui_extras::Size::exact(controls_height))
                         .vertical(|mut strip| {
                             strip.cell(|ui| {
-                                egui::ScrollArea::horizontal().show(ui, |ui| {
-                                    self.update_ingredients(conn, toasts, ui, &mut refresh_self);
-                                });
+                                self.update_ingredients(conn, toasts, ui, &mut refresh_self);
                             });
                             strip.cell(|ui| {
                                 ui.separator();
