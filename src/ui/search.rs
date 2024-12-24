@@ -132,6 +132,16 @@ where
 
         if changed {
             r.mark_changed();
+            if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), r.id) {
+                let ccursor = egui::text::CCursor::new(buf.chars().count());
+                state
+                    .cursor
+                    .set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
+                state.store(ui.ctx(), r.id);
+            }
+
+            r.request_focus();
+            ui.memory_mut(|m| m.open_popup(pop_up_id));
         }
 
         r
