@@ -303,12 +303,15 @@ impl RecipeManager {
                             r.ingredient_edited(&mut self.conn);
                         }
                     }
-                    ingredient_list::UpdateEvent::IngredientDeleted => {
+                    ingredient_list::UpdateEvent::IngredientDeleted(id) => {
                         for r in self.recipes.values_mut() {
                             r.ingredient_deleted(&mut self.conn);
                         }
                         if let Some(window) = &mut self.ingredient_replace_window {
                             window.ingredient_deleted(&mut self.conn);
+                        }
+                        if let Some(window) = &mut self.recipe_search_window {
+                            window.ingredient_deleted(id)
                         }
                     }
                 }
@@ -378,12 +381,15 @@ impl RecipeManager {
                             r.ingredient_edited(&mut self.conn);
                         }
                     }
-                    ingredient_replace::UpdateEvent::IngredientDeleted => {
+                    ingredient_replace::UpdateEvent::IngredientDeleted(id) => {
                         if let Some(window) = &mut self.ingredient_list_window {
                             window.ingredient_deleted();
                         }
                         for r in self.recipes.values_mut() {
                             r.ingredient_deleted(&mut self.conn);
+                        }
+                        if let Some(window) = &mut self.recipe_search_window {
+                            window.ingredient_deleted(id)
                         }
                     }
                 }

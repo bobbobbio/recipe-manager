@@ -27,7 +27,7 @@ impl IngredientBeingEdited {
 pub enum UpdateEvent {
     Closed,
     IngredientEdited,
-    IngredientDeleted,
+    IngredientDeleted(IngredientId),
 }
 
 pub struct IngredientListWindow {
@@ -119,7 +119,7 @@ impl IngredientListWindow {
                 if ui.button("Delete").clicked() {
                     if query::delete_ingredient(conn, ingredient.id) {
                         *refresh_self = true;
-                        events.push(UpdateEvent::IngredientDeleted);
+                        events.push(UpdateEvent::IngredientDeleted(ingredient.id));
                         calories_shown = false;
                     } else {
                         toasts.add(egui_toast::Toast {

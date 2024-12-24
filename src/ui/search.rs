@@ -1,7 +1,7 @@
 use super::{new_error_toast, query, recipe::RecipeWindow, PressedEnterExt as _};
 use crate::database::{
     self,
-    models::{Ingredient, IngredientHandle, RecipeHandle, RecipeId},
+    models::{Ingredient, IngredientHandle, IngredientId, RecipeHandle, RecipeId},
 };
 use derive_more::Display;
 use std::collections::HashMap;
@@ -410,6 +410,12 @@ impl RecipeSearchByIngredient {
                 });
             });
     }
+
+    fn ingredient_deleted(&mut self, id: IngredientId) {
+        self.new_ingredient = None;
+        self.cached_ingredient_search = None;
+        self.to_search.retain(|i| i.id != id);
+    }
 }
 
 struct RecipeSearchByName {
@@ -540,5 +546,9 @@ impl RecipeSearchWindow {
 
     pub fn recipe_deleted(&mut self, id: RecipeId) {
         self.by_name.recipe_deleted(id);
+    }
+
+    pub fn ingredient_deleted(&mut self, id: IngredientId) {
+        self.by_ingredient.ingredient_deleted(id);
     }
 }

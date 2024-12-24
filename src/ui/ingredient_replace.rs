@@ -1,4 +1,4 @@
-use crate::database::models::Ingredient;
+use crate::database::models::{Ingredient, IngredientId};
 use crate::{
     database,
     ui::{new_error_toast, query, search::SearchWidget},
@@ -7,7 +7,7 @@ use crate::{
 pub enum UpdateEvent {
     Closed,
     IngredientReplaced,
-    IngredientDeleted,
+    IngredientDeleted(IngredientId),
 }
 
 #[derive(Default)]
@@ -102,7 +102,7 @@ impl IngredientReplaceWindow {
                                         events.push(UpdateEvent::IngredientReplaced);
                                         if self.delete {
                                             query::delete_ingredient(conn, remove.id);
-                                            events.push(UpdateEvent::IngredientDeleted);
+                                            events.push(UpdateEvent::IngredientDeleted(remove.id));
                                         }
                                         *self = Self::new();
                                         self.result_text =
