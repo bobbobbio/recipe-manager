@@ -1,4 +1,4 @@
-use super::{query, recipe_list::RecipeListWindow};
+use super::{query, recipe_list::RecipeListWindow, PressedEnterExt as _};
 use crate::database;
 use crate::database::models::{RecipeCategory, RecipeCategoryId};
 use std::collections::HashMap;
@@ -141,16 +141,20 @@ impl CategoryListWindow {
         ui.horizontal(|ui| {
             ui.toggle_value(&mut self.edit_mode, "Edit");
             if self.edit_mode {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.new_category_name)
-                        .hint_text("category name")
-                        .desired_width(ui.available_width() - 110.0),
-                );
+                let mut new_category = false;
+                new_category |= ui
+                    .add(
+                        egui::TextEdit::singleline(&mut self.new_category_name)
+                            .hint_text("category name")
+                            .desired_width(ui.available_width() - 110.0),
+                    )
+                    .pressed_enter();
                 let e = !self.new_category_name.is_empty();
-                if ui
+                new_category |= ui
                     .add_enabled(e, egui::Button::new("New Category"))
-                    .clicked()
-                {
+                    .clicked();
+
+                if new_category && e {
                     query::add_category(conn, &self.new_category_name);
                     self.new_category_name = "".into();
                     *refresh_self = true;

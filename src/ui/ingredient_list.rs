@@ -1,4 +1,7 @@
-use super::{ingredient_calories::IngredientCaloriesWindow, query, search::SearchWidget};
+use super::{
+    ingredient_calories::IngredientCaloriesWindow, query, search::SearchWidget,
+    PressedEnterExt as _,
+};
 use crate::database;
 use crate::database::models::{Ingredient, IngredientHandle, IngredientId};
 use std::collections::HashMap;
@@ -262,20 +265,24 @@ impl IngredientListWindow {
                     strip.cell(|ui| {
                         ui.toggle_value(&mut self.edit_mode, "Edit");
                     });
+                    let mut added = false;
                     strip.cell(|ui| {
-                        ui.add(
-                            egui::TextEdit::singleline(&mut self.new_ingredient_name)
-                                .desired_width(f32::INFINITY),
-                        );
+                        added |= ui
+                            .add(
+                                egui::TextEdit::singleline(&mut self.new_ingredient_name)
+                                    .desired_width(f32::INFINITY),
+                            )
+                            .pressed_enter();
                     });
+                    let e = !self.new_ingredient_name.is_empty();
                     strip.cell(|ui| {
-                        let e = !self.new_ingredient_name.is_empty();
-                        if ui.add_enabled(e, egui::Button::new("Add")).clicked() {
-                            query::add_ingredient(conn, &self.new_ingredient_name);
-                            self.new_ingredient_name = "".into();
-                            *refresh_self = true;
-                        }
+                        added |= ui.add_enabled(e, egui::Button::new("Add")).clicked();
                     });
+                    if added && e {
+                        query::add_ingredient(conn, &self.new_ingredient_name);
+                        self.new_ingredient_name = "".into();
+                        *refresh_self = true;
+                    }
                 });
         } else {
             ui.toggle_value(&mut self.edit_mode, "Edit");

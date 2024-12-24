@@ -440,3 +440,18 @@ impl eframe::App for RecipeManager {
         self.toasts.show(ctx);
     }
 }
+
+trait PressedEnterExt {
+    fn pressed_enter(&self) -> bool;
+}
+
+impl PressedEnterExt for egui::Response {
+    fn pressed_enter(&self) -> bool {
+        if self.lost_focus() && self.ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+            self.request_focus();
+            true
+        } else {
+            false
+        }
+    }
+}

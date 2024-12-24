@@ -1,4 +1,4 @@
-use super::{new_error_toast, query, recipe::RecipeWindow};
+use super::{new_error_toast, query, recipe::RecipeWindow, PressedEnterExt as _};
 use crate::database::{
     self,
     models::{Ingredient, IngredientHandle, RecipeHandle, RecipeId},
@@ -278,39 +278,45 @@ impl RecipeSearchByIngredient {
             .size(egui_extras::Size::remainder())
             .size(egui_extras::Size::exact(40.0))
             .horizontal(|mut strip| {
+                let mut added = false;
                 strip.cell(|ui| {
-                    ui.add(
-                        SearchWidget::new(
-                            "recipe search ingredient name",
-                            &mut self.new_ingredient_name,
-                            &mut self.new_ingredient,
-                            |query| {
-                                query::search_ingredients(
-                                    conn,
-                                    &mut self.cached_ingredient_search,
-                                    query,
-                                )
-                            },
+                    added |= ui
+                        .add(
+                            SearchWidget::new(
+                                "recipe search ingredient name",
+                                &mut self.new_ingredient_name,
+                                &mut self.new_ingredient,
+                                |query| {
+                                    query::search_ingredients(
+                                        conn,
+                                        &mut self.cached_ingredient_search,
+                                        query,
+                                    )
+                                },
+                            )
+                            .hint_text("search for ingredient")
+                            .desired_width(f32::INFINITY),
                         )
-                        .hint_text("search for ingredient")
-                        .desired_width(f32::INFINITY),
-                    );
+                        .pressed_enter();
                 });
+                let e = !self.new_ingredient_name.is_empty();
                 strip.cell(|ui| {
-                    if ui.button("Add").clicked() {
-                        if let Some(ingredient) = &self.new_ingredient {
-                            if self.to_search.iter().any(|i| i.id == ingredient.id) {
-                                toasts.add(new_error_toast("Ingredient already in search"));
-                            } else {
-                                self.to_search.push(ingredient.to_handle());
-                                self.new_ingredient_name = "".into();
-                                self.new_ingredient = None;
-                            }
-                        } else {
-                            toasts.add(new_error_toast("Couldn't find ingredient"));
-                        }
-                    }
+                    added |= ui.add_enabled(e, egui::Button::new("Add")).clicked();
                 });
+
+                if added && e {
+                    if let Some(ingredient) = &self.new_ingredient {
+                        if self.to_search.iter().any(|i| i.id == ingredient.id) {
+                            toasts.add(new_error_toast("Ingredient already in search"));
+                        } else {
+                            self.to_search.push(ingredient.to_handle());
+                            self.new_ingredient_name = "".into();
+                            self.new_ingredient = None;
+                        }
+                    } else {
+                        toasts.add(new_error_toast("Couldn't find ingredient"));
+                    }
+                }
             });
     }
 

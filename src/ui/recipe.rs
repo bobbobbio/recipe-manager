@@ -3,7 +3,7 @@ use super::{
     ingredient_calories::IngredientCaloriesWindow,
     new_error_toast, query,
     search::SearchWidget,
-    unit_conversion,
+    unit_conversion, PressedEnterExt as _,
 };
 use crate::database;
 use crate::database::models::{
@@ -290,42 +290,44 @@ impl RecipeWindow {
                     strip.cell(|ui| {
                         ui.label("Add Ingredient:");
                     });
+
+                    let mut added = false;
+
                     strip.cell(|ui| {
-                        ui.add(
-                            SearchWidget::new(
-                                ("recipe ingredient add search", self.recipe.id),
-                                &mut self.new_ingredient_name,
-                                &mut self.new_ingredient,
-                                |query| {
-                                    query::search_ingredients(
-                                        conn,
-                                        &mut self.cached_ingredient_search,
-                                        query,
-                                    )
-                                },
+                        added |= ui
+                            .add(
+                                SearchWidget::new(
+                                    ("recipe ingredient add search", self.recipe.id),
+                                    &mut self.new_ingredient_name,
+                                    &mut self.new_ingredient,
+                                    |query| {
+                                        query::search_ingredients(
+                                            conn,
+                                            &mut self.cached_ingredient_search,
+                                            query,
+                                        )
+                                    },
+                                )
+                                .hint_text("search for ingredient")
+                                .desired_width(f32::INFINITY),
                             )
-                            .hint_text("search for ingredient")
-                            .desired_width(f32::INFINITY),
-                        );
+                            .pressed_enter();
                     });
 
                     strip.cell(|ui| {
-                        if ui.button("Add").clicked() {
-                            if let Some(ingredient) = &self.new_ingredient {
-                                query::add_recipe_ingredient(
-                                    conn,
-                                    self.recipe.id,
-                                    ingredient.id,
-                                    1.0,
-                                );
-                                self.new_ingredient_name = "".into();
-                                self.new_ingredient = None;
-                                *refresh_self = true;
-                            } else {
-                                toasts.add(new_error_toast("Couldn't find ingredient"));
-                            }
-                        }
+                        added |= ui.button("Add").clicked();
                     });
+
+                    if added {
+                        if let Some(ingredient) = &self.new_ingredient {
+                            query::add_recipe_ingredient(conn, self.recipe.id, ingredient.id, 1.0);
+                            self.new_ingredient_name = "".into();
+                            self.new_ingredient = None;
+                            *refresh_self = true;
+                        } else {
+                            toasts.add(new_error_toast("Couldn't find ingredient"));
+                        }
+                    }
                 });
         });
     }

@@ -1,4 +1,4 @@
-use super::{generate_rtf, new_error_toast, query, search::SearchWidget};
+use super::{generate_rtf, new_error_toast, query, search::SearchWidget, PressedEnterExt as _};
 use crate::database;
 use crate::database::models::{RecipeHandle, RecipeId};
 use std::collections::HashMap;
@@ -181,27 +181,35 @@ impl CalendarWindow {
                         } else {
                             ui.label("No Recipe");
                             if self.edit_mode {
-                                let e = self.recipes_being_selected.entry(day).or_default();
-                                ui.add_sized(
-                                    egui::vec2(200.0, 15.0),
-                                    SearchWidget::new(
-                                        ("calendar select recipe", day),
-                                        &mut e.name,
-                                        &mut e.recipe_id,
-                                        |query| {
-                                            query::search_recipes(
-                                                conn,
-                                                &mut e.cached_recipe_search,
-                                                query,
-                                            )
-                                        },
+                                let entry = self.recipes_being_selected.entry(day).or_default();
+                                let mut selected = false;
+                                selected |= ui
+                                    .add_sized(
+                                        egui::vec2(200.0, 15.0),
+                                        SearchWidget::new(
+                                            ("calendar select recipe", day),
+                                            &mut entry.name,
+                                            &mut entry.recipe_id,
+                                            |query| {
+                                                query::search_recipes(
+                                                    conn,
+                                                    &mut entry.cached_recipe_search,
+                                                    query,
+                                                )
+                                            },
+                                        )
+                                        .hint_text("search for recipe"),
                                     )
-                                    .hint_text("search for recipe"),
-                                );
-                                if ui.button("Select").clicked() {
-                                    if let Some(recipe_id) = e.recipe_id {
+                                    .pressed_enter();
+
+                                let e = !entry.name.is_empty();
+                                selected |=
+                                    ui.add_enabled(e, egui::Button::new("Select")).clicked();
+
+                                if selected && e {
+                                    if let Some(recipe_id) = entry.recipe_id {
                                         self.week.schedule(conn, day, recipe_id);
-                                        *e = Default::default();
+                                        *entry = Default::default();
 
                                         events.push(UpdateEvent::RecipeScheduled {
                                             week: self.week.week().clone(),
