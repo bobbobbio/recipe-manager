@@ -486,35 +486,39 @@ impl RecipeWindow {
                             strip.cell(|ui| {
                                 ui.label("Category:");
                             });
+                            let mut saved = false;
                             strip.cell(|ui| {
-                                ui.add(
-                                    SearchWidget::new(
-                                        ("recipe category", self.recipe.id),
-                                        &mut self.new_category_name,
-                                        &mut self.new_category,
-                                        |query| {
-                                            query::search_recipe_categories(
-                                                conn,
-                                                &mut self.cached_category_search,
-                                                query,
-                                            )
-                                        },
+                                saved |= ui
+                                    .add(
+                                        SearchWidget::new(
+                                            ("recipe category", self.recipe.id),
+                                            &mut self.new_category_name,
+                                            &mut self.new_category,
+                                            |query| {
+                                                query::search_recipe_categories(
+                                                    conn,
+                                                    &mut self.cached_category_search,
+                                                    query,
+                                                )
+                                            },
+                                        )
+                                        .desired_width(f32::INFINITY)
+                                        .hint_text("search for category"),
                                     )
-                                    .desired_width(f32::INFINITY)
-                                    .hint_text("search for category"),
-                                );
+                                    .pressed_enter();
                             });
+                            let e = !self.new_category_name.is_empty();
                             strip.cell(|ui| {
-                                if ui.button("Save").clicked() {
-                                    if let Some(cat) = self.new_category {
-                                        query::edit_recipe_category(conn, self.recipe.id, cat);
-                                        events.push(UpdateEvent::CategoryChanged);
-                                    } else {
-                                        toasts
-                                            .add(new_error_toast("Couldn't find recipe category"));
-                                    }
-                                }
+                                saved |= ui.add_enabled(e, egui::Button::new("Save")).clicked();
                             });
+                            if saved && e {
+                                if let Some(cat) = self.new_category {
+                                    query::edit_recipe_category(conn, self.recipe.id, cat);
+                                    events.push(UpdateEvent::CategoryChanged);
+                                } else {
+                                    toasts.add(new_error_toast("Couldn't find recipe category"));
+                                }
+                            }
                         });
                 });
                 strip.cell(|ui| {
