@@ -63,8 +63,8 @@ impl CategoryListWindow {
                 row.col(|ui| {
                     ui.toggle_value(&mut shown, name.clone());
                 });
-                if self.edit_mode {
-                    row.col(|ui| {
+                row.col(|ui| {
+                    if self.edit_mode {
                         if ui.button("Edit").clicked() {
                             self.category_being_edited = Some(CategoryBeingEdited {
                                 id: *cat_id,
@@ -88,8 +88,8 @@ impl CategoryListWindow {
                                 });
                             }
                         }
-                    });
-                }
+                    }
+                });
 
                 if shown && !recipe_list_windows.contains_key(&cat_id) {
                     let cat = RecipeCategory {
