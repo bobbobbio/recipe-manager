@@ -8,11 +8,16 @@ env:
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
 
-    runs-on: macos-13
+    strategy:
+      matrix:
+        os: [macos-latest, macos-13]
 
     steps:
     - uses: actions/checkout@v4
+    - name: Get Rust version
+      run: echo "RUST_VERSION=$(nix develop --command rustc --version | cut -d' ' -f2)" >> $GITHUB_ENV
     - name: Cache cargo registry
       uses: actions/cache@v4
       with:
@@ -20,7 +25,7 @@ jobs:
           ~/.cargo/registry/index/
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
-        key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}
+        key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}-${{ env.RUST_VERSION }}-${{ matrix.os }}
     - name: Install Diesel
       run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Install cargo-bundle
