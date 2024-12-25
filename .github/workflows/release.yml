@@ -1,4 +1,4 @@
-name: Release x86-64-macos
+name: Release
 
 on:
   workflow_dispatch:
