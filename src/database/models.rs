@@ -121,6 +121,7 @@ pub enum IngredientMeasurement {
     Milliliters,
     Ounces,
     Pounds,
+    Quart,
     Tablespoons,
     Teaspoons,
 }
@@ -138,6 +139,7 @@ impl IngredientMeasurement {
             Self::Milliliters => "mL",
             Self::Ounces => "oz.",
             Self::Pounds => "lbs.",
+            Self::Quart => "qt.",
             Self::Tablespoons => "tbsp.",
             Self::Teaspoons => "tsp.",
         }

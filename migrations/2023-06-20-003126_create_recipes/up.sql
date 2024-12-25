@@ -39,6 +39,7 @@ CREATE TABLE ingredient_usages (
         'milliliters',
         'ounces',
         'pounds',
+        'quart',
         'tablespoons',
         'teaspoons'
     ) ),
@@ -62,6 +63,7 @@ CREATE TABLE ingredient_calories (
         'milliliters',
         'ounces',
         'pounds',
+        'quart',
         'tablespoons',
         'teaspoons'
     ) ),

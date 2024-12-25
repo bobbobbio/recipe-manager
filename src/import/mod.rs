@@ -26,6 +26,7 @@ impl IngredientMeasurement {
             "oz." => Self::Ounces,
             "tbsp." => Self::Tablespoons,
             "tsp." => Self::Teaspoons,
+            "qt." => Self::Quart,
             _ => panic!("couldn't import measurement {s:?}"),
         }
     }

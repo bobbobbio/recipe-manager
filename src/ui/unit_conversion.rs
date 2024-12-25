@@ -19,6 +19,7 @@ impl From<IngredientMeasurement> for MeasurementKind {
             IngredientMeasurement::Milliliters => Self::Volume,
             IngredientMeasurement::Ounces => Self::Weight,
             IngredientMeasurement::Pounds => Self::Weight,
+            IngredientMeasurement::Quart => Self::Volume,
             IngredientMeasurement::Tablespoons => Self::Volume,
             IngredientMeasurement::Teaspoons => Self::Volume,
         }
@@ -44,6 +45,7 @@ impl From<IngredientMeasurement> for MeasurementClass {
             IngredientMeasurement::Milliliters => Self::Metric,
             IngredientMeasurement::Ounces => Self::Us,
             IngredientMeasurement::Pounds => Self::Us,
+            IngredientMeasurement::Quart => Self::Us,
             IngredientMeasurement::Tablespoons => Self::Us,
             IngredientMeasurement::Teaspoons => Self::Us,
         }
@@ -56,6 +58,7 @@ fn as_teaspoons(a: IngredientMeasurement) -> f32 {
         IngredientMeasurement::FluidOunces => 6.0,
         IngredientMeasurement::Teaspoons => 1.0,
         IngredientMeasurement::Tablespoons => 3.0,
+        IngredientMeasurement::Quart => 192.0,
         _ => unreachable!(),
     }
 }
@@ -69,6 +72,7 @@ fn as_milliliters(a: IngredientMeasurement) -> f32 {
         IngredientMeasurement::Milliliters => 1.0,
         IngredientMeasurement::Tablespoons => 14.7867648,
         IngredientMeasurement::Teaspoons => 4.92892159,
+        IngredientMeasurement::Quart => 946.353,
         _ => unreachable!(),
     }
 }
