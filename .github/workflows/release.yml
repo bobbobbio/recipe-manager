@@ -17,7 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Get Rust version
-      run: echo "RUST_VERSION=$(nix develop --command rustc --version | cut -d' ' -f2)" >> $GITHUB_ENV
+      run: echo "RUST_VERSION=$(rustc --version | cut -d' ' -f2)" >> $GITHUB_ENV
+    - name: Get target-triple
+      run: echo "TARGET=$(rustc --version --verbose | sed -n '5 p' | cut -d' ' -f2)" >> $GITHUB_ENV
     - name: Cache cargo registry
       uses: actions/cache@v4
       with:
@@ -36,6 +38,6 @@ jobs:
       run: echo "PKG_VERSION=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')" >> $GITHUB_ENV
     - uses: actions/upload-artifact@v4
       with:
-        name: recipe-manager-${{ env.PKG_VERSION }}-macos-x86-64.app
+        name: recipe-manager-${{ env.PKG_VERSION }}-${{ env.TARGET }}.app
         path: "target/release/bundle/osx/"
 
