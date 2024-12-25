@@ -28,7 +28,7 @@ jobs:
     - name: Build
       run: cargo bundle --profile=release
     - name: Get Version
-      run: echo "PKG_VERSION=$(cargo metadata --format-version=1 --no-deps | jq '.packages[0].version')" >> $GITHUB_ENV
+      run: echo "PKG_VERSION=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')" >> $GITHUB_ENV
     - uses: actions/upload-artifact@v4
       with:
         name: recipe-manager-${{ env.PKG_VERSION }}-macos-x86-64.app
