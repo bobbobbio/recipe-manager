@@ -17,7 +17,7 @@ fn rich_text_header() -> String {
     rich_text
 }
 
-fn rich_text_heading(text: &str, week: &chrono::NaiveWeek) -> String {
+fn rich_text_heading(text: &str, week: chrono::NaiveWeek) -> String {
     let mut rich_text = String::new();
     rich_text += &format!("\\f0\\b\\fs24 \\cf0 {text} for the Week \\\n");
     rich_text += &week
@@ -150,7 +150,7 @@ fn sort_ingredients_by_category(
 }
 
 pub fn generate_and_open_shopping_list(
-    week: &chrono::NaiveWeek,
+    week: chrono::NaiveWeek,
     ingredients: Vec<(IngredientUsage, Ingredient)>,
 ) -> crate::Result<()> {
     let ingredients = sort_ingredients_by_category(ingredients);

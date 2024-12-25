@@ -163,6 +163,7 @@ impl SearchResultsWindow {
         &mut self,
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
+        selected_week: Option<chrono::NaiveWeek>,
         ui: &mut egui::Ui,
     ) {
         if self.results.is_empty() {
@@ -192,8 +193,10 @@ impl SearchResultsWindow {
                         });
 
                         if shown && !recipe_windows.contains_key(&recipe.id) {
-                            recipe_windows
-                                .insert(recipe.id, RecipeWindow::new(conn, recipe.id, false));
+                            recipe_windows.insert(
+                                recipe.id,
+                                RecipeWindow::new(conn, recipe.id, selected_week, false),
+                            );
                         } else if !shown {
                             recipe_windows.remove(&recipe.id);
                         }
@@ -206,6 +209,7 @@ impl SearchResultsWindow {
         &mut self,
         ctx: &egui::Context,
         conn: &mut database::Connection,
+        selected_week: Option<chrono::NaiveWeek>,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
     ) -> bool {
         let mut open = true;
@@ -213,7 +217,7 @@ impl SearchResultsWindow {
             .id(egui::Id::new(("search window", self.id)))
             .open(&mut open)
             .show(ctx, |ui| {
-                self.update_table(conn, recipe_windows, ui);
+                self.update_table(conn, recipe_windows, selected_week, ui);
             });
         !open
     }
@@ -445,6 +449,7 @@ impl RecipeSearchByName {
         &mut self,
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
+        selected_week: Option<chrono::NaiveWeek>,
         ui: &mut egui::Ui,
     ) {
         ui.add(
@@ -477,7 +482,8 @@ impl RecipeSearchByName {
                         });
 
                         if shown && !recipe_windows.contains_key(&id) {
-                            recipe_windows.insert(*id, RecipeWindow::new(conn, *id, false));
+                            recipe_windows
+                                .insert(*id, RecipeWindow::new(conn, *id, selected_week, false));
                         } else if !shown {
                             recipe_windows.remove(id);
                         }
@@ -523,6 +529,7 @@ impl RecipeSearchWindow {
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
         toasts: &mut egui_toast::Toasts,
+        selected_week: Option<chrono::NaiveWeek>,
         search_for_ingredients: impl FnMut(
             &mut database::Connection,
             IngredientSearchControl,
@@ -547,7 +554,7 @@ impl RecipeSearchWindow {
                             .update(conn, toasts, search_for_ingredients, ui);
                     }
                     RecipeSearchTab::ByName => {
-                        self.by_name.update(conn, recipe_windows, ui);
+                        self.by_name.update(conn, recipe_windows, selected_week, ui);
                     }
                 }
             });

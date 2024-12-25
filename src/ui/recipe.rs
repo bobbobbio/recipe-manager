@@ -95,7 +95,12 @@ pub struct RecipeWindow {
 }
 
 impl RecipeWindow {
-    pub fn new(conn: &mut database::Connection, recipe_id: RecipeId, edit_mode: bool) -> Self {
+    pub fn new(
+        conn: &mut database::Connection,
+        recipe_id: RecipeId,
+        selected_week: Option<chrono::NaiveWeek>,
+        edit_mode: bool,
+    ) -> Self {
         let (recipe, category_name, ingredients) = query::get_recipe(conn, recipe_id);
         Self {
             recipe,
@@ -107,7 +112,7 @@ impl RecipeWindow {
             new_ingredient: None,
             cached_ingredient_search: None,
 
-            week: RecipeWeek::new(conn, this_week()),
+            week: RecipeWeek::new(conn, selected_week.unwrap_or_else(|| this_week())),
 
             new_category_name: category_name,
             new_category: None,
@@ -667,7 +672,7 @@ impl RecipeWindow {
                         if ui.button(format!("{day}: {recipe}")).clicked() {
                             self.week.schedule(conn, day, self.recipe.id);
                             ui.close_menu();
-                            events.push(UpdateEvent::Scheduled(*self.week.week()));
+                            events.push(UpdateEvent::Scheduled(self.week.week()));
                         }
                     }
                 });
@@ -773,7 +778,7 @@ impl RecipeWindow {
             });
 
         if refresh_self {
-            *self = Self::new(conn, self.recipe.id, self.edit_mode);
+            *self = Self::new(conn, self.recipe.id, Some(self.week.week()), self.edit_mode);
         }
 
         if !open {
@@ -783,17 +788,17 @@ impl RecipeWindow {
     }
 
     pub fn recipe_scheduled(&mut self, conn: &mut database::Connection, week: chrono::NaiveWeek) {
-        if self.week.week() == &week {
+        if self.week.week() == week {
             self.week.refresh(conn);
         }
     }
 
     pub fn ingredient_edited(&mut self, conn: &mut database::Connection) {
-        *self = Self::new(conn, self.recipe.id, self.edit_mode);
+        *self = Self::new(conn, self.recipe.id, Some(self.week.week()), self.edit_mode);
     }
 
     pub fn ingredient_deleted(&mut self, conn: &mut database::Connection) {
-        *self = Self::new(conn, self.recipe.id, self.edit_mode);
+        *self = Self::new(conn, self.recipe.id, Some(self.week.week()), self.edit_mode);
     }
 
     pub fn recipe_deleted(&mut self, conn: &mut database::Connection) {

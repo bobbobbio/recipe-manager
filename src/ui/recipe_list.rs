@@ -42,6 +42,7 @@ impl RecipeListWindow {
         conn: &mut database::Connection,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
         ui: &mut egui::Ui,
+        selected_week: Option<chrono::NaiveWeek>,
         refresh_self: &mut bool,
     ) -> Vec<UpdateEvent> {
         let mut events = vec![];
@@ -75,7 +76,8 @@ impl RecipeListWindow {
                         });
 
                         if shown && !recipe_windows.contains_key(&id) {
-                            recipe_windows.insert(*id, RecipeWindow::new(conn, *id, false));
+                            recipe_windows
+                                .insert(*id, RecipeWindow::new(conn, *id, selected_week, false));
                         } else if !shown {
                             recipe_windows.remove(id);
                         }
@@ -118,6 +120,7 @@ impl RecipeListWindow {
         &mut self,
         ctx: &egui::Context,
         conn: &mut database::Connection,
+        selected_week: Option<chrono::NaiveWeek>,
         recipe_windows: &mut HashMap<RecipeId, RecipeWindow>,
     ) -> Vec<UpdateEvent> {
         let style = ctx.style();
@@ -148,6 +151,7 @@ impl RecipeListWindow {
                                 conn,
                                 recipe_windows,
                                 ui,
+                                selected_week,
                                 &mut refresh_self,
                             ));
                         });

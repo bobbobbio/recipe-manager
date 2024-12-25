@@ -112,8 +112,8 @@ impl RecipeWeek {
         *self = Self::new(conn, self.start);
     }
 
-    pub fn week(&self) -> &chrono::NaiveWeek {
-        &self.start
+    pub fn week(&self) -> chrono::NaiveWeek {
+        self.start
     }
 
     pub fn refresh(&mut self, conn: &mut database::Connection) {
@@ -343,5 +343,9 @@ impl CalendarWindow {
 
     pub fn recipe_deleted(&mut self, conn: &mut database::Connection) {
         *self = Self::new_with_args(conn, self.edit_mode);
+    }
+
+    pub fn week(&self) -> chrono::NaiveWeek {
+        self.week.week()
     }
 }

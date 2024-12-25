@@ -139,9 +139,10 @@ impl RecipeManager {
     }
 
     fn update_recipe_list_windows(&mut self, ctx: &egui::Context) {
+        let selected_week = self.calendar_window.as_ref().map(|w| w.week());
         for (id, mut list) in mem::take(&mut self.recipe_lists) {
             let mut closed = false;
-            let events = list.update(ctx, &mut self.conn, &mut self.recipes);
+            let events = list.update(ctx, &mut self.conn, selected_week, &mut self.recipes);
             for event in events {
                 match event {
                     recipe_list::UpdateEvent::Closed => closed = true,
@@ -338,6 +339,7 @@ impl RecipeManager {
     }
 
     fn update_recipe_search_window(&mut self, ctx: &egui::Context) {
+        let selected_week = self.calendar_window.as_ref().map(|w| w.week());
         if let Some(window) = &mut self.recipe_search_window {
             let search_by_ingredients = |conn: &mut database::Connection, control, ingredients| {
                 Self::ingredient_search(
@@ -353,6 +355,7 @@ impl RecipeManager {
                 &mut self.conn,
                 &mut self.recipes,
                 &mut self.toasts,
+                selected_week,
                 search_by_ingredients,
             ) {
                 self.recipe_search_window = None;
@@ -361,8 +364,9 @@ impl RecipeManager {
     }
 
     fn update_search_result_windows(&mut self, ctx: &egui::Context) {
+        let selected_week = self.calendar_window.as_ref().map(|w| w.week());
         for mut sw in mem::take(&mut self.search_result_windows) {
-            if !sw.update(ctx, &mut self.conn, &mut self.recipes) {
+            if !sw.update(ctx, &mut self.conn, selected_week, &mut self.recipes) {
                 self.search_result_windows.push(sw);
             }
         }
