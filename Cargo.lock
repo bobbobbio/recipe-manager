@@ -3227,6 +3227,7 @@ dependencies = [
  "egui-toast",
  "egui_extras",
  "image",
+ "log",
  "maplit",
  "open",
  "plist",

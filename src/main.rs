@@ -54,7 +54,11 @@ fn run(conn: database::Connection) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    simple_logger::SimpleLogger::new().env().init().unwrap();
+    simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Warn)
+        .env()
+        .init()
+        .unwrap();
 
     let conn = database::establish_connection(data_path()?.join("data.sqlite"))?;
     run(conn)?;
