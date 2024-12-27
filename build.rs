@@ -6,7 +6,7 @@ use std::{env, fs};
 fn main() {
     #[cfg(target_os = "windows")]
     winresource::WindowsResource::new()
-        .set_icon("images/appicon.icns")
+        .set_icon("images/appicon.ico")
         .compile()
         .unwrap();
 
