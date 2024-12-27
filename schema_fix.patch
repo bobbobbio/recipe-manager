@@ -1,7 +1,5 @@
-diff --git a/src/database/schema.rs b/src/database/schema.rs
-index 78a8686..2346fd1 100644
---- a/src/database/schema.rs
-+++ b/src/database/schema.rs
+--- "a/src/database/schema.rs"
++++ "b/src/database/schema.rs"
 @@ -13,7 +13,7 @@ diesel::table! {
          ingredient_id -> Integer,
          calories -> Float,

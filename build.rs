@@ -5,6 +5,7 @@ use std::{env, fs};
 
 fn main() {
     println!("cargo:rerun-if-changed=migrations/");
+    println!("cargo:rerun-if-changed=schema_fix.patch");
 
     let out_dir = env::temp_dir();
     let database_path = out_dir.join("database.sqlite");
