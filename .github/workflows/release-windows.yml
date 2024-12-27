@@ -37,7 +37,7 @@ jobs:
     - name: Build
       run: cargo build --release
     - name: Get Version
-      run: echo "PKG_VERSION=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')" >> $GITHUB_ENV
+      run: echo "PKG_VERSION=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')" >> $env::GITHUB_ENV
     - name: Create bundle
       run: |
         mkdir target/release/bundle
