@@ -23,6 +23,14 @@ fn run(conn: database::Connection) -> Result<()> {
         window_builder: Some(Box::new(|mut b: egui::viewport::ViewportBuilder| {
             b.maximized = Some(true);
             b.transparent = Some(false);
+            b.icon = Some(
+                egui::IconData {
+                    rgba: include_bytes!("../images/appicon.png").to_vec(),
+                    width: 452,
+                    height: 445,
+                }
+                .into(),
+            );
             b
         })),
         ..Default::default()
