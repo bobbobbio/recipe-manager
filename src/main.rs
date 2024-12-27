@@ -25,21 +25,10 @@ fn run(conn: database::Connection) -> Result<()> {
         window_builder: Some(Box::new(|mut b: egui::viewport::ViewportBuilder| {
             b.maximized = Some(true);
             b.transparent = Some(false);
-            let icon = image::ImageReader::with_format(
-                std::io::Cursor::new(include_bytes!("../images/appicon.ico")),
-                image::ImageFormat::Ico,
-            )
-            .decode()
-            .unwrap()
-            .to_rgba8();
-            let (width, height) = icon.dimensions();
             b.icon = Some(
-                egui::IconData {
-                    rgba: icon.into_raw(),
-                    width,
-                    height,
-                }
-                .into(),
+                eframe::icon_data::from_png_bytes(include_bytes!("../images/appicon.png"))
+                    .unwrap()
+                    .into(),
             );
             b
         })),
