@@ -34,8 +34,6 @@ jobs:
         link.exe /lib /def:sqlite3.def /MACHINE:X64
         echo "LIB=$(Resolve-Path -Path .)" >> $env:GITHUB_ENV
         cp sqlite3.dll "C:\Windows\System32\"
-    - name: Install Diesel
-      run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Install cargo-bundle
       run: cargo install cargo-bundle
     - name: Build

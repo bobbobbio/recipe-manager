@@ -4,6 +4,11 @@ use std::process::Command;
 use std::{env, fs};
 
 fn main() {
+    // On windows, the patch part has problems for some reason
+    if cfg!(windows) {
+        return;
+    }
+
     println!("cargo:rerun-if-changed=migrations/");
     println!("cargo:rerun-if-changed=schema_fix.patch");
 
