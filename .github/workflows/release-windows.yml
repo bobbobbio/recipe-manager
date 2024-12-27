@@ -33,6 +33,7 @@ jobs:
         $env:Path = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.42.34433\bin\HostX64\x64\;" + $env:Path
         link.exe /lib /def:sqlite3.def /MACHINE:X64
         echo "LIB=$(Resolve-Path -Path .)" >> $env:GITHUB_ENV
+        cp sqlite3.dll "C:\Windows\System32\"
     - name: Install Diesel
       run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Install cargo-bundle
