@@ -28,6 +28,7 @@ jobs:
       run: |
         curl --output sqlite3.zip https://www.sqlite.org/2024/sqlite-dll-win-x64-3470200.zip
         unzip sqlite3.zip
+        tree "C:\Program Files (x86)\Microsoft Visual Studio\"
         link /lib /def:sqlite3.def /MACHINE:X64
     - name: Install Diesel
       run: cargo install diesel_cli --no-default-features --features sqlite
