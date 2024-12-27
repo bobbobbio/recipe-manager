@@ -22,16 +22,12 @@ fn data_path() -> Result<PathBuf> {
 
 fn run(conn: database::Connection) -> Result<()> {
     let native_options = eframe::NativeOptions {
-        window_builder: Some(Box::new(|mut b: egui::viewport::ViewportBuilder| {
-            b.maximized = Some(true);
-            b.transparent = Some(false);
-            b.icon = Some(
-                eframe::icon_data::from_png_bytes(include_bytes!("../images/appicon.png"))
-                    .unwrap()
-                    .into(),
-            );
-            b
-        })),
+        viewport: egui::ViewportBuilder::default()
+            .with_maximized(true)
+            .with_transparent(false)
+            .with_icon(
+                eframe::icon_data::from_png_bytes(include_bytes!("../images/appicon.png")).unwrap(),
+            ),
         ..Default::default()
     };
     eframe::run_native(
