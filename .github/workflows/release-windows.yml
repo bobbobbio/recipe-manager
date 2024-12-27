@@ -13,9 +13,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Get Rust version
-      run: echo "RUST_VERSION=$(rustc --version | cut -d' ' -f2)" >> $GITHUB_ENV
+      run: echo "RUST_VERSION=$(rustc --version | cut -d' ' -f2)" >> $env:GITHUB_ENV
     - name: Get target-triple
-      run: echo "TARGET=$(rustc --version --verbose | sed -n '5 p' | cut -d' ' -f2)" >> $GITHUB_ENV
+      run: echo "TARGET=$(rustc --version --verbose | sed -n '5 p' | cut -d' ' -f2)" >> $env:GITHUB_ENV
     - name: Cache cargo registry
       uses: actions/cache@v4
       with:
@@ -23,7 +23,7 @@ jobs:
           ~/.cargo/registry/index/
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
-        key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}-${{ env.RUST_VERSION }}-${{ matrix.os }}
+        key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}-${{ env.RUST_VERSION }}-windows-latest
     - name: Install sqlite3
       run: |
         mkdir target/sqlite3
@@ -32,7 +32,7 @@ jobs:
         unzip sqlite3.zip
         $env:Path = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.42.34433\bin\HostX64\x64\;" + $env:Path
         link.exe /lib /def:sqlite3.def /MACHINE:X64
-        echo "LIB=$(Resolve-Path -Path .)" >> $GITHUB_ENV
+        echo "LIB=$(Resolve-Path -Path .)" >> $env:GITHUB_ENV
     - name: Install Diesel
       run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Install cargo-bundle
