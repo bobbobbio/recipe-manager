@@ -23,16 +23,22 @@ fn run(conn: database::Connection) -> Result<()> {
         window_builder: Some(Box::new(|mut b: egui::viewport::ViewportBuilder| {
             b.maximized = Some(true);
             b.transparent = Some(false);
-            /*
+            let icon = image::ImageReader::with_format(
+                std::io::Cursor::new(include_bytes!("../images/appicon.ico")),
+                image::ImageFormat::Ico,
+            )
+            .decode()
+            .unwrap()
+            .to_rgba8();
+            let (width, height) = icon.dimensions();
             b.icon = Some(
                 egui::IconData {
-                    rgba: include_bytes!("../images/appicon.ico").to_vec(),
-                    width: 32,
-                    height: 32,
+                    rgba: icon.into_raw(),
+                    width,
+                    height,
                 }
                 .into(),
             );
-            */
             b
         })),
         ..Default::default()
