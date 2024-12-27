@@ -24,6 +24,8 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
         key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}-${{ env.RUST_VERSION }}-windows-latest
+    - name: Install jq
+      uses: dcarbone/install-jq-action@v3.0.1
     - name: Install sqlite3
       run: |
         mkdir target/sqlite3
