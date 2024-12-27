@@ -34,14 +34,17 @@ jobs:
         link.exe /lib /def:sqlite3.def /MACHINE:X64
         echo "LIB=$(Resolve-Path -Path .)" >> $env:GITHUB_ENV
         cp sqlite3.dll "C:\Windows\System32\"
-    - name: Install cargo-bundle
-      run: cargo install cargo-bundle
     - name: Build
-      run: cargo bundle --profile=release
+      run: cargo build --release
     - name: Get Version
       run: echo "PKG_VERSION=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')" >> $GITHUB_ENV
+    - name: Create bundle
+      run: |
+        mkdir target/release/bundle
+        cp target/release/recipe-manager.exe target/release/bundle/
+        cp target/sqlite3/sqlite3.dll target/release/bundle/
     - uses: actions/upload-artifact@v4
       with:
-        name: recipe-manager-${{ env.PKG_VERSION }}-${{ env.TARGET }}.app
-        path: "target/release/bundle/msi/"
+        name: recipe-manager-${{ env.PKG_VERSION }}-${{ env.TARGET }}
+        path: "target/release/bundle/"
 
