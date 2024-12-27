@@ -25,9 +25,9 @@ fn run(conn: database::Connection) -> Result<()> {
             b.transparent = Some(false);
             b.icon = Some(
                 egui::IconData {
-                    rgba: include_bytes!("../images/appicon.png").to_vec(),
-                    width: 452,
-                    height: 445,
+                    rgba: include_bytes!("../images/appicon.ico").to_vec(),
+                    width: 32,
+                    height: 32,
                 }
                 .into(),
             );
