@@ -1,5 +1,7 @@
 // Copyright 2023 Remi Bernotavicius
 
+#![windows_subsystem = "windows"]
+
 use std::path::PathBuf;
 
 mod database;
