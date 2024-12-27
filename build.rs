@@ -4,6 +4,12 @@ use std::process::Command;
 use std::{env, fs};
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    winresource::WindowsResource::new()
+        .set_icon("images/appicon.icns")
+        .compile()
+        .unwrap();
+
     // On windows, the patch part has problems for some reason
     if cfg!(windows) {
         return;
