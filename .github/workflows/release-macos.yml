@@ -1,0 +1,43 @@
+name: Release MacOS
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [macos-latest, macos-13]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get Rust version
+      run: echo "RUST_VERSION=$(rustc --version | cut -d' ' -f2)" >> $GITHUB_ENV
+    - name: Get target-triple
+      run: echo "TARGET=$(rustc --version --verbose | sed -n '5 p' | cut -d' ' -f2)" >> $GITHUB_ENV
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}-${{ env.RUST_VERSION }}-${{ matrix.os }}
+    - name: Install Diesel
+      run: cargo install diesel_cli --no-default-features --features sqlite
+    - name: Install cargo-bundle
+      run: cargo install cargo-bundle
+    - name: Build
+      run: cargo bundle --profile=release
+    - name: Get Version
+      run: echo "PKG_VERSION=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')" >> $GITHUB_ENV
+    - uses: actions/upload-artifact@v4
+      with:
+        name: recipe-manager-${{ env.PKG_VERSION }}-${{ env.TARGET }}.app
+        path: "target/release/bundle/osx/"
+

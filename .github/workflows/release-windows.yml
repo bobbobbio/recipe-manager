@@ -1,4 +1,4 @@
-name: Release
+name: Release Windows
 
 on:
   workflow_dispatch:
@@ -8,11 +8,7 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [macos-latest, macos-13, windows-latest]
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -28,6 +24,11 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
         key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}-${{ env.RUST_VERSION }}-${{ matrix.os }}
+    - name: Install sqlite3
+      run: |
+        wget https://www.sqlite.org/2024/sqlite-dll-win-x64-3470200.zip -O sqlite3.zip
+        unzip sqlite3.zip
+        link /lib /def:sqlite3.def /MACHINE:X64
     - name: Install Diesel
       run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Install cargo-bundle
@@ -39,5 +40,5 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: recipe-manager-${{ env.PKG_VERSION }}-${{ env.TARGET }}.app
-        path: "target/release/bundle/osx/"
+        path: "target/release/bundle/msi/"
 
