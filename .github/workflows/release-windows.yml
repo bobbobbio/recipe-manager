@@ -26,10 +26,13 @@ jobs:
         key: cargo-lock-hash-${{ hashFiles('Cargo.lock') }}-${{ env.RUST_VERSION }}-${{ matrix.os }}
     - name: Install sqlite3
       run: |
+        mkdir target/sqlite3
+        cd target/sqlite3
         curl --output sqlite3.zip https://www.sqlite.org/2024/sqlite-dll-win-x64-3470200.zip
         unzip sqlite3.zip
         $env:Path = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.42.34433\bin\HostX64\x64\;" + $env:Path
         link.exe /lib /def:sqlite3.def /MACHINE:X64
+        $env:LIB = $(Resolve-Path -Path ".")
     - name: Install Diesel
       run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Install cargo-bundle
