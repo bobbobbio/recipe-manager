@@ -48,7 +48,7 @@ impl RecipeIngredient {
 
         for c in &self.calories {
             if c.quantity_units == self.quantity_units {
-                return Some(c.calories * self.quantity);
+                return Some(c.calories * self.quantity / c.quantity);
             }
         }
         for c in &self.calories {
