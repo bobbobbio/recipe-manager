@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install sqlite3
+      run: apt install sqlite3
     - name: Install Diesel
       run: cargo install diesel_cli --no-default-features --features sqlite
     - name: Build
