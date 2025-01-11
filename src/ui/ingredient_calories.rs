@@ -1,4 +1,5 @@
 use super::query;
+use super::recipe::{quantity_display, quantity_parse};
 use crate::database;
 use crate::database::models::{IngredientCaloriesEntry, IngredientHandle, IngredientMeasurement};
 
@@ -71,7 +72,7 @@ impl IngredientCaloriesWindow {
                             ui.label(c.calories.to_string());
                         });
                         row.col(|ui| {
-                            ui.label(c.quantity.to_string());
+                            ui.label(quantity_display(c.quantity, &c.quantity_units));
                         });
                         row.col(|ui| {
                             ui.label(c.quantity_units.as_ref().map(|c| c.as_str()).unwrap_or(""));
@@ -143,7 +144,7 @@ impl IngredientCaloriesWindow {
                             conn,
                             self.ingredient.id,
                             self.new_entry.calories.parse().unwrap_or(0.0),
-                            self.new_entry.quantity.parse().unwrap_or(0.0),
+                            quantity_parse(&self.new_entry.quantity).unwrap_or(0.0),
                             self.new_entry.quantity_units,
                         );
                         *refresh_self = true;

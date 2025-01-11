@@ -27,7 +27,7 @@ impl From<IngredientMeasurement> for MeasurementKind {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-enum MeasurementClass {
+pub enum MeasurementClass {
     Us,
     Metric,
 }

@@ -68,6 +68,108 @@ fn right_align_cell(ui: &mut egui::Ui, text: String) {
     });
 }
 
+fn equal_epsilon(a: f32, b: f32, e: f32) -> bool {
+    let delta = a - b;
+    if delta < 0.0 {
+        delta >= -e
+    } else {
+        delta <= e
+    }
+}
+
+fn fractional_quantity_display(q: f32) -> String {
+    let whole_part = q as u32;
+    let frac = q - whole_part as f32;
+
+    for d in 2u32..=100 {
+        for n in 1u32..d {
+            if equal_epsilon(n as f32 / d as f32, frac, 0.001) {
+                if whole_part > 0 {
+                    return format!("{whole_part} {n}/{d}");
+                } else {
+                    return format!("{n}/{d}");
+                }
+            }
+        }
+    }
+    q.to_string()
+}
+
+pub fn quantity_display(q: f32, units: &Option<IngredientMeasurement>) -> String {
+    use unit_conversion::MeasurementClass;
+
+    let measurement_class = units
+        .as_ref()
+        .map(|units| MeasurementClass::from(units.clone()))
+        .unwrap_or(MeasurementClass::Us);
+    if measurement_class == MeasurementClass::Us {
+        fractional_quantity_display(q)
+    } else {
+        q.to_string()
+    }
+}
+
+#[test]
+fn quantity_display_test() {
+    assert_eq!(quantity_display(1.0, &None), "1");
+    assert_eq!(quantity_display(2.0, &None), "2");
+    assert_eq!(quantity_display(3.333, &None), "3 1/3");
+    assert_eq!(quantity_display(1.0 / 2.0, &None), "1/2");
+    assert_eq!(quantity_display(1.0 / 3.0, &None), "1/3");
+    assert_eq!(quantity_display(0.333, &None), "1/3");
+    assert_eq!(quantity_display(0.3, &None), "3/10");
+    assert_eq!(
+        quantity_display(0.333, &Some(IngredientMeasurement::Liters)),
+        "0.333"
+    );
+}
+
+pub fn quantity_parse(q: &str) -> Option<f32> {
+    use std::str::FromStr as _;
+
+    if q.contains(" ") {
+        let parts: Vec<_> = q.split(" ").filter_map(|p| quantity_parse(p)).collect();
+        if !parts.is_empty() {
+            return Some(parts.into_iter().sum());
+        } else {
+            return None;
+        }
+    }
+
+    if q.contains("/") {
+        let parts: Vec<_> = q.split("/").collect();
+        if parts.len() != 2 {
+            return None;
+        }
+        let n = f32::from_str(parts[0]).ok()?;
+        let d = f32::from_str(parts[1]).ok()?;
+        Some(n / d)
+    } else {
+        q.parse().ok()
+    }
+}
+
+#[test]
+fn quantity_parse_test() {
+    assert_eq!(quantity_parse("1/2").unwrap(), 0.5);
+    assert_eq!(quantity_parse("1 1/2").unwrap(), 1.5);
+    assert!(equal_epsilon(quantity_parse("1/3").unwrap(), 0.333, 0.001));
+    assert_eq!(quantity_parse("3").unwrap(), 3.0);
+    assert_eq!(quantity_parse("0.123").unwrap(), 0.123);
+}
+
+#[test]
+fn quantity_display_parse_roundtrip() {
+    for w in 0u32..=100 {
+        for f in 0u32..=1000 {
+            let v = w as f32 + (f as f32) / 1000.0;
+            let formatted = quantity_display(v, &None);
+            let parsed = quantity_parse(&formatted).unwrap();
+            assert!(equal_epsilon(parsed, v, 0.01));
+        }
+    }
+}
+
 pub enum UpdateEvent {
     Closed,
     Renamed(Recipe),
@@ -195,7 +297,7 @@ impl RecipeWindow {
                         conn,
                         e.usage_id,
                         e.ingredient.as_ref().unwrap(),
-                        e.quantity.parse().unwrap_or(0.0),
+                        quantity_parse(&e.quantity).unwrap_or(0.0),
                         e.quantity_units,
                     );
                     *refresh_self = true;
@@ -220,7 +322,7 @@ impl RecipeWindow {
         row.col(|ui| {
             ui.label(usage.ingredient.category.as_deref().unwrap_or(""));
         });
-        row.col(|ui| right_align_cell(ui, usage.quantity.to_string()));
+        row.col(|ui| right_align_cell(ui, quantity_display(usage.quantity, &usage.quantity_units)));
         row.col(|ui| {
             ui.label(
                 usage
