@@ -1,4 +1,5 @@
 use super::calendar::{full_day_name, RecipeWeek};
+use super::recipe::quantity_display;
 use crate::database::models::{Ingredient, IngredientId, IngredientMeasurement, IngredientUsage};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -70,16 +71,16 @@ impl fmt::Display for ShoppingListItem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut usages = self.usages.iter().filter_map(|(m, u)| m.map(|m| (m, u)));
         if let Some((m, u)) = usages.next() {
-            write!(f, "{u} {}", m.as_str())?;
+            write!(f, "{} {}", quantity_display(*u, &Some(m)), m.as_str())?;
         }
         for (m, u) in usages {
-            write!(f, " and {u} {}", m.as_str())?;
+            write!(f, " and {} {}", quantity_display(*u, &Some(m)), m.as_str())?;
         }
         if let Some(u) = self.usages.get(&None) {
             if self.usages.len() > 1 {
-                write!(f, " and {u} {}", self.name)?;
+                write!(f, " and {} {}", quantity_display(*u, &None), self.name)?;
             } else {
-                write!(f, "{u} {}", self.name)?;
+                write!(f, "{} {}", quantity_display(*u, &None), self.name)?;
             }
         } else {
             write!(f, " of {}", self.name)?;
