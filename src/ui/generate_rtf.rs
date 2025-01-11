@@ -120,7 +120,7 @@ fn shopping_list_item() {
     };
     assert_eq!(
         item.to_string(),
-        "2 cups and 0.5 tbsp. and 3 cans of tomatoes"
+        "2 cups and 1/2 tbsp. and 3 cans of tomatoes"
     );
 
     let item = ShoppingListItem {
