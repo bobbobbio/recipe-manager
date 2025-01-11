@@ -27,7 +27,7 @@ impl IngredientBeingEdited {
             usage_id: usage.id,
             new_ingredient_name: usage.ingredient.name.clone(),
             ingredient: Some(usage.ingredient.clone()),
-            quantity: usage.quantity.to_string(),
+            quantity: quantity_display(usage.quantity, &usage.quantity_units),
             quantity_units: usage.quantity_units,
             cached_ingredient_search: None,
         }
